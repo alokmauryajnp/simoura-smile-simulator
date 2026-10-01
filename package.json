@@ -1,0 +1,16 @@
+{
+  "name": "smile-simulator",
+  "version": "1.0.0",
+  "description": "AI smile visualization demo using Kimi K3 and Pollinations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "form-data": "^4.0.6",
+    "multer": "^2.4.0"
+  }
+}
