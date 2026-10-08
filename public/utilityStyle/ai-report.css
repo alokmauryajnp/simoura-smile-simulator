@@ -1,0 +1,599 @@
+/* =========================================================
+   SIMOURA — FINAL AI ASSESSMENT UI OVERRIDES
+   ========================================================= */
+
+
+/* =========================================================
+   1. AI ASSESSMENT — SIX EQUAL CARDS
+   3 COLUMNS × 2 ROWS
+   ========================================================= */
+
+#reportSection .chs {
+    display: grid !important;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr)) !important;
+
+    gap: 10px !important;
+
+    margin-top: 22px;
+}
+
+
+/* Every characteristic is a normal card */
+
+#reportSection .chs > div {
+    grid-column: auto !important;
+
+    min-height: 220px;
+
+    display: block !important;
+
+    padding: 20px 16px !important;
+
+    background: #ffffff;
+
+    border: 1px solid #dfe8f0 !important;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 2px 8px rgba(40, 70, 95, 0.035);
+
+    overflow: hidden;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+
+#reportSection .chs > div:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 7px 18px rgba(40, 70, 95, 0.07);
+}
+
+
+/* =========================================================
+   TOP ACCENT COLORS
+   ========================================================= */
+
+#reportSection .chs > div:nth-child(1) {
+    border-top: 3px solid #74b9e8 !important;
+}
+
+#reportSection .chs > div:nth-child(2) {
+    border-top: 3px solid #ee8c91 !important;
+}
+
+#reportSection .chs > div:nth-child(3) {
+    border-top: 3px solid #e9bd63 !important;
+}
+
+#reportSection .chs > div:nth-child(4) {
+    border-top: 3px solid #72c99b !important;
+}
+
+#reportSection .chs > div:nth-child(5) {
+    border-top: 3px solid #a991df !important;
+}
+
+#reportSection .chs > div:nth-child(6) {
+    border-top: 3px solid #a991df !important;
+}
+
+
+/* =========================================================
+   ICONS
+   ========================================================= */
+
+#reportSection .chs > div::before {
+    display: flex !important;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 40px;
+    height: 40px;
+
+    margin-bottom: 13px;
+
+    border-radius: 50%;
+
+    font-size: 17px;
+}
+
+
+/* Alignment */
+
+#reportSection .chs > div:nth-child(1)::before {
+    content: "♢";
+
+    color: #1674b5;
+
+    background: #e7f5ff;
+}
+
+
+/* Crowding */
+
+#reportSection .chs > div:nth-child(2)::before {
+    content: "○";
+
+    color: #d64a50;
+
+    background: #fff0f0;
+}
+
+
+/* Tooth shade */
+
+#reportSection .chs > div:nth-child(3)::before {
+    content: "◇";
+
+    color: #b57a0a;
+
+    background: #fff8df;
+}
+
+
+/* Smile arc */
+
+#reportSection .chs > div:nth-child(4)::before {
+    content: "⌣";
+
+    color: #16815f;
+
+    background: #e9f8ef;
+}
+
+
+/* Gum */
+
+#reportSection .chs > div:nth-child(5)::before {
+    content: "⌁";
+
+    color: #7755bd;
+
+    background: #f2edff;
+}
+
+
+/* Tooth proportions */
+
+#reportSection .chs > div:nth-child(6)::before {
+    content: "▦";
+
+    color: #7658c3;
+
+    background: #f0eaff;
+}
+
+
+/* =========================================================
+   CARD TITLES
+   ========================================================= */
+
+#reportSection .chs > div > span {
+    display: block;
+
+    margin: 0 0 11px;
+
+    color: #142b4a;
+
+    font-family:
+        "DM Sans",
+        Inter,
+        Arial,
+        sans-serif;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   CARD DESCRIPTION
+   ========================================================= */
+
+#reportSection .chs > div > p {
+    margin: 0 !important;
+
+    color: #637896;
+
+    font-size: 13px !important;
+
+    line-height: 1.65 !important;
+}
+
+
+/* =========================================================
+   REMOVE OLD SIXTH-CARD FULL WIDTH BEHAVIOR
+   ========================================================= */
+
+#reportSection .chs > div:nth-child(6) {
+    grid-column: auto !important;
+
+    display: block !important;
+
+    min-height: 220px !important;
+
+    padding: 20px 16px !important;
+
+    background: #ffffff !important;
+
+    border-radius: 12px !important;
+}
+
+#reportSection .chs > div:nth-child(6)::before {
+    flex: none !important;
+
+    width: 40px !important;
+    height: 40px !important;
+
+    margin: 0 0 13px !important;
+}
+
+
+/* =========================================================
+   2. POTENTIAL VISUALIZATION DIRECTIONS
+   REMOVE OUTER WHITE BOX FEEL
+   ========================================================= */
+
+/*
+   The panel itself should behave like a section,
+   while each treatment remains its own card.
+*/
+
+#reportSection > .up > .panel:last-child {
+    padding: 24px 0 0 !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+}
+
+
+/* Keep heading aligned */
+
+#reportSection > .up > .panel:last-child h3 {
+    padding: 0 4px;
+
+    margin-bottom: 16px;
+}
+
+
+/* =========================================================
+   TREATMENT CARD CONTAINER
+   ========================================================= */
+
+#treatmentList {
+    display: flex !important;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+    width: 100%;
+}
+
+
+/* =========================================================
+   INDIVIDUAL TREATMENT CARD
+   ========================================================= */
+
+#treatmentList .treatment {
+    position: relative;
+
+    display: grid !important;
+
+    grid-template-columns:
+        46px
+        minmax(0, 1fr)
+        20px !important;
+
+    grid-template-areas:
+        "icon content arrow" !important;
+
+    align-items: center;
+
+    width: 100%;
+
+    min-height: 82px;
+
+    padding: 12px 14px !important;
+
+    background: #ffffff;
+
+    border: 1px solid #e1e9ef;
+
+    border-radius: 11px;
+
+    box-sizing: border-box;
+
+    overflow: hidden;
+
+    transition:
+        border-color 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+
+#treatmentList .treatment:hover {
+    border-color: #c9ddd7;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 5px 16px rgba(40, 70, 70, 0.06);
+}
+
+
+/* =========================================================
+   TREATMENT ICON
+   ========================================================= */
+
+#treatmentList .treatment::before {
+    grid-area: icon;
+
+    content: "✦";
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 40px;
+    height: 40px;
+
+    margin: 0 !important;
+
+    color: #087b68;
+
+    background: #e8f8ef;
+
+    border-radius: 11px;
+
+    font-size: 17px;
+}
+
+
+/* Whitening */
+
+#treatmentList .treatment:nth-child(2)::before {
+    content: "✧";
+
+    color: #aa7900;
+
+    background: #fff7df;
+}
+
+
+/* Veneers */
+
+#treatmentList .treatment:nth-child(3)::before {
+    content: "◇";
+
+    color: #7655c0;
+
+    background: #f1ebff;
+}
+
+
+/* Enamel */
+
+#treatmentList .treatment:nth-child(4)::before {
+    content: "⌁";
+
+    color: #1674b5;
+
+    background: #e8f5ff;
+}
+
+
+/* =========================================================
+   TREATMENT CONTENT
+   ========================================================= */
+
+#treatmentList .treatment-name,
+#treatmentList .treatment-reason {
+    grid-column: 2;
+
+    min-width: 0;
+}
+
+
+/* Treatment title */
+
+#treatmentList .treatment-name {
+    display: block;
+
+    margin: 0 0 3px;
+
+    color: #087b68;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    line-height: 1.35;
+}
+
+
+/* Treatment explanation */
+
+#treatmentList .treatment-reason {
+    display: block;
+
+    margin: 0;
+
+    color: #7185a0;
+
+    font-size: 12px;
+
+    line-height: 1.45;
+
+    white-space: normal;
+
+    overflow-wrap: break-word;
+}
+
+
+/* =========================================================
+   ARROW
+   ========================================================= */
+
+#treatmentList .treatment::after {
+    grid-area: arrow;
+
+    content: "›";
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: #7185a0;
+
+    font-size: 23px;
+
+    font-weight: 300;
+}
+
+
+/* =========================================================
+   IMPORTANT:
+   PREVENT THE TREATMENT TEXT FROM BECOMING A NARROW COLUMN
+   ========================================================= */
+
+#treatmentList .treatment > * {
+    min-width: 0;
+}
+
+
+/* =========================================================
+   OBSERVATIONS CARD — KEEP CLEAN
+   ========================================================= */
+
+#reportSection > .up > .panel:first-child {
+    background: #ffffff;
+
+    border: 1px solid #dfe8f0;
+
+    border-radius: 15px;
+
+    padding: 24px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 950px) {
+
+    #reportSection .chs {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+
+@media (max-width: 700px) {
+
+    #reportSection .chs {
+        grid-template-columns: 1fr !important;
+    }
+
+    #reportSection .chs > div,
+    #reportSection .chs > div:nth-child(6) {
+        min-height: 0 !important;
+    }
+
+    #reportSection > .up {
+        grid-template-columns: 1fr !important;
+    }
+
+    #reportSection > .up > .panel:last-child {
+        padding-top: 20px !important;
+    }
+}
+
+
+/* Remove background behind characteristics cards */
+.chs {
+    background: transparent !important;
+    border: none;
+}
+
+
+/* =====================================================
+   VISIBLE OBSERVATIONS — BULLET POINTS
+   ===================================================== */
+
+#observationsList {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#observationsList .observation {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 8px 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    line-height: 1.6 !important;
+}
+
+#observationsList .observation-dot {
+    display: block !important;
+    width: 7px !important;
+    height: 7px !important;
+    min-width: 7px !important;
+    flex: 0 0 7px !important;
+    margin-top: 9px !important;
+    border-radius: 50% !important;
+    background: #0B5B4F !important;
+}
+
+#observationsList .observation > span:last-child {
+    display: block !important;
+    flex: 1 !important;
+}
+
+
+/* Different icon backgrounds
+.tips-card .tip:nth-of-type(2) .tip-icon {
+    background: #fff8df !important;
+    color: #d89b00 !important;
+}
+
+.tips-card .tip:nth-of-type(3) .tip-icon {
+    background: #edf4ff !important;
+    color: #3476d8 !important;
+}
+
+.tips-card .tip:nth-of-type(4) .tip-icon {
+    background: #edf5ff !important;
+    color: #4b7fd8 !important;
+}
+
+.tips-card .tip:nth-of-type(5) .tip-icon {
+    background: #f0edff !important;
+    color: #6954d8 !important;
+}
+
+.tips-card .tip:nth-of-type(6) .tip-icon {
+    background: #fff0f1 !important;
+    color: #d85b67 !important;
+} */

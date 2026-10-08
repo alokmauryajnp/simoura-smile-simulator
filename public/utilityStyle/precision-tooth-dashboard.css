@@ -1,0 +1,1317 @@
+/* SIMOURA Precision Tooth Analysis — new dashboard UI */
+
+#toothMaskCard{
+  position:relative; overflow:hidden;
+  padding:clamp(28px,4vw,42px)!important;
+  border:1px solid #dfe9e4!important;
+  border-left:3px solid #c7a34a!important;
+  border-radius:10px!important;
+  background:#fbfcfa!important;
+  box-shadow:0 10px 30px rgba(18,63,56,.04)!important;
+}
+
+#toothMaskCard h2{
+  color:#123f38;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-weight:600;
+  font-size:clamp(36px,4vw,52px);
+  line-height:1;
+  margin:0 0 10px;
+}
+
+#toothMaskCard>.eye,
+#toothMaskCard .card-kicker{
+  color:#b28d39;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  font-size:11px;
+  font-weight:700;
+}
+
+#toothMaskCard>.generation-description{
+  color:#61736e;
+  font-size:14px;
+  line-height:1.65;
+}
+
+#toothMaskCard .precise-start-row,
+#toothMaskCard> .tooth-mask-controls:first-of-type{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  margin:26px 0 24px!important;
+  padding:14px 16px;
+  min-height:68px;
+  border:1px solid #dce8e2;
+  border-radius:9px;
+  background:linear-gradient(90deg,#f1f6f2,#f7faf7);
+}
+
+#startPreciseToothBtn,
+#testToothMaskBtn,
+#visualizeToothBtn{
+  min-height:44px;
+  padding:0 22px;
+  border-radius:6px!important;
+  background:#0b5b4f!important;
+  border:1px solid #0b5b4f!important;
+  color:#fff!important;
+  font-weight:600;
+  box-shadow:none!important;
+}
+
+#preciseLocalizationStatus{
+  flex:1;
+  margin:0!important;
+  color:#60736d;
+  line-height:1.5;
+}
+
+#toothMaskCard .tooth-selection-panel,
+#toothMaskCard> .tooth-mask-controls:not(.precise-start-row){
+  display:flex;
+  align-items:flex-end;
+  gap:14px;
+  margin:0 0 18px!important;
+}
+
+#toothMaskCard .tooth-mask-field{width:min(420px,100%)}
+
+#toothMaskCard .tooth-mask-label,
+#toothMaskCard label[for="toothSelect"]{
+  display:block;
+  margin:0 0 8px;
+  color:#60736d;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+#toothSelect{
+  width:100%;
+  min-height:44px;
+  padding:0 14px;
+  border:1px solid #cfded8!important;
+  border-radius:6px!important;
+  background:#fff!important;
+  color:#123f38!important;
+  font-size:14px;
+  font-weight:600;
+}
+
+#toothMaskMeta{
+  margin:6px 0 20px!important;
+  color:#6a7a75;
+  font-size:12px;
+  line-height:1.6;
+}
+
+#toothMaskResult{
+  margin-top:20px!important;
+  padding-top:22px;
+  border-top:1px solid #dce8e2;
+}
+
+#toothMaskResult>.up{
+  display:block!important;
+  margin:0!important;
+}
+
+#toothMaskResult>.up>div:first-child,
+#toothMaskResult>.up>div:nth-child(2){
+  width:100%!important;
+  min-width:0!important;
+}
+
+#toothMaskResult>.up>div:first-child>h3,
+#toothMaskResult h3{
+  color:#123f38;
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:28px;
+  line-height:1.1;
+  margin:0 0 6px;
+}
+
+#toothMaskPreview{
+  display:block;
+  width:100%!important;
+  max-width:100%;
+  height:auto;
+  max-height:620px;
+  object-fit:contain;
+  margin-top:14px!important;
+  border:1px solid #dbe7e1;
+  border-radius:7px!important;
+  background:#f2f6f3;
+}
+
+#toothMaskResult>.up>div:first-child>p,
+#toothMaskStatus,
+#toothAnalysisStatus{
+  color:#71817c;
+  font-size:12px;
+  line-height:1.55;
+}
+
+#toothMaskResult>.up>div:nth-child(2){
+  margin-top:26px;
+}
+
+.tooth-report-card{
+  width:100%;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#294943;
+}
+
+.tooth-report-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:20px 22px;
+  border:1px solid #dce8e2;
+  border-radius:9px;
+  background:#f8fbf9;
+}
+
+.tooth-report-kicker{
+  color:#b28d39;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.14em;
+}
+
+.tooth-report-title{
+  margin:5px 0 0!important;
+  color:#123f38!important;
+  font-family:"Cormorant Garamond",Georgia,serif!important;
+  font-size:30px!important;
+  line-height:1.05!important;
+}
+
+.tooth-report-confidence{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 13px;
+  border:1px solid #cce8df;
+  border-radius:999px;
+  background:#edf8f4;
+  color:#0b8c72;
+}
+
+.tooth-report-confidence span{font-size:10px;font-weight:600}
+.tooth-report-confidence strong{font-size:12px}
+
+.tooth-report-section{margin-top:18px}
+
+.tooth-report-summary{
+  padding:18px 20px;
+  border:1px solid #dce8e2;
+  border-radius:8px;
+  background:#f7faf8;
+}
+
+.tooth-report-section h4{
+  margin:0 0 8px;
+  color:#14594f;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+
+.tooth-report-summary p,
+.tooth-report-visualization p{
+  margin:0;
+  color:#60736d;
+  font-size:14px;
+  line-height:1.65;
+}
+
+.tooth-report-summary+.tooth-report-section{margin-top:24px}
+
+.tooth-report-summary+.tooth-report-section:before{
+  content:"DETAILED ASSESSMENT";
+  display:block;
+  margin-bottom:12px;
+  color:#14594f;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.08em;
+}
+
+.tooth-report-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  counter-reset:tooth-assessment;
+}
+
+.tooth-report-item{
+  position:relative;
+  min-height:108px;
+  padding:18px 20px 18px 70px;
+  border:1px solid #dce8e2;
+  border-radius:8px;
+  background:#fff;
+}
+
+.tooth-report-item:before{
+  content:counter(tooth-assessment);
+  counter-increment:tooth-assessment;
+  position:absolute;
+  top:17px;
+  left:17px;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#e7f5f0;
+  color:#16826e;
+  font-size:11px;
+  font-weight:800;
+}
+
+.tooth-report-item-label{
+  margin-bottom:6px;
+  color:#174f47;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+
+.tooth-report-item-value{
+  color:#60736d;
+  font-size:13px;
+  line-height:1.55;
+}
+
+.tooth-report-visualization{
+  position:relative;
+  padding:18px 22px 18px 54px;
+  border:1px solid #bfe4d9;
+  border-left:3px solid #16a085;
+  border-radius:7px;
+  background:#eef8f4;
+}
+
+.tooth-report-visualization:before{
+  content:"✦";
+  position:absolute;
+  top:18px;
+  left:19px;
+  color:#12a485;
+  font-size:17px;
+}
+
+#toothMaskResult>h3{
+  margin-top:34px!important;
+  padding-top:26px;
+  border-top:1px solid #dce8e2;
+}
+
+#toothVisualizationPreview{margin-top:14px}
+
+@media(max-width:760px){
+  #toothMaskCard{padding:24px 18px!important}
+  #toothMaskCard .precise-start-row,
+  #toothMaskCard>.tooth-mask-controls:first-of-type{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  #startPreciseToothBtn{width:100%}
+  #toothMaskCard .tooth-selection-panel,
+  #toothMaskCard>.tooth-mask-controls:not(.precise-start-row){
+    align-items:stretch;
+    flex-direction:column;
+  }
+  #toothMaskCard .tooth-mask-field{width:100%}
+  #testToothMaskBtn{width:100%}
+  .tooth-report-header{align-items:flex-start;flex-direction:column}
+  .tooth-report-grid{grid-template-columns:1fr}
+  #toothMaskPreview{max-height:none}
+}
+
+
+/* Fix numbered assessment cards */
+
+#toothMaskResult .tooth-report-grid .tooth-report-item {
+    position: relative !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    min-height: 108px !important;
+    padding: 18px 20px 18px 76px !important;
+    overflow: hidden !important;
+}
+
+#toothMaskResult .tooth-report-grid .tooth-report-item::before {
+    position: absolute !important;
+    top: 18px !important;
+    left: 18px !important;
+
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border-radius: 50% !important;
+
+    background: #e7f5f0 !important;
+    color: #16826e !important;
+
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+
+    z-index: 2 !important;
+}
+
+#toothMaskResult .tooth-report-grid .tooth-report-item-label {
+    position: relative !important;
+    display: block !important;
+    margin: 0 0 7px !important;
+    padding: 0 !important;
+
+    color: #174f47 !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    letter-spacing: .07em !important;
+    text-transform: uppercase !important;
+
+    z-index: 3 !important;
+}
+
+#toothMaskResult .tooth-report-grid .tooth-report-item-value {
+    position: relative !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+
+    color: #60736d !important;
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+
+    z-index: 3 !important;
+}
+
+@media (max-width: 760px) {
+    #toothMaskResult .tooth-report-grid .tooth-report-item {
+        min-height: 0 !important;
+        padding: 18px 18px 18px 70px !important;
+    }
+
+    #toothMaskResult .tooth-report-grid .tooth-report-item::before {
+        left: 16px !important;
+        top: 17px !important;
+    }
+}
+
+
+
+/* =========================================================
+   TOOTH REPORT — Separate Header/Summary from Assessment
+========================================================= */
+
+/* Remove the outer report container feeling */
+#toothMaskResult .tooth-report-card {
+    width: 100% !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------
+   1. Selected Tooth Header — standalone box
+--------------------------------------------------------- */
+
+#toothMaskResult .tooth-report-header {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+
+    padding: 22px 24px !important;
+
+    border: 1px solid #dce8e2 !important;
+    border-radius: 9px !important;
+
+    background: #f8fbf9 !important;
+}
+
+/* ---------------------------------------------------------
+   2. Summary — completely separate box
+--------------------------------------------------------- */
+
+#toothMaskResult .tooth-report-summary {
+    width: 100% !important;
+    box-sizing: border-box !important;
+
+    margin: 18px 0 0 !important;
+    padding: 20px 24px !important;
+
+    border: 1px solid #dce8e2 !important;
+    border-radius: 9px !important;
+
+    background: #f7faf8 !important;
+}
+
+/* ---------------------------------------------------------
+   3. Detailed Assessment — its own section
+--------------------------------------------------------- */
+
+#toothMaskResult .tooth-report-summary + .tooth-report-section {
+    width: 100% !important;
+    box-sizing: border-box !important;
+
+    margin-top: 30px !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+    background: transparent !important;
+}
+
+/* Section heading */
+#toothMaskResult .tooth-report-summary
+    + .tooth-report-section::before {
+
+    content: "DETAILED ASSESSMENT";
+
+    display: block;
+
+    margin: 0 0 14px !important;
+
+    color: #14594f;
+
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------
+   4. Assessment cards stay completely outside the boxes
+--------------------------------------------------------- */
+
+#toothMaskResult .tooth-report-grid {
+    width: 100% !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+    background: transparent !important;
+}
+
+/* Individual assessment cards */
+#toothMaskResult .tooth-report-grid .tooth-report-item {
+    box-sizing: border-box !important;
+
+    margin: 0 !important;
+
+    border: 1px solid #dce8e2 !important;
+    border-radius: 8px !important;
+
+    background: #fff !important;
+
+    box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------
+   5. Visualization instructions also becomes a separate
+      section below assessment
+--------------------------------------------------------- */
+
+#toothMaskResult .tooth-report-visualization {
+    width: 100% !important;
+    box-sizing: border-box !important;
+
+    margin-top: 18px !important;
+}
+
+/* ---------------------------------------------------------
+   Mobile
+--------------------------------------------------------- */
+
+@media (max-width: 760px) {
+
+    #toothMaskResult .tooth-report-header {
+        padding: 20px !important;
+    }
+
+    #toothMaskResult .tooth-report-summary {
+        margin-top: 14px !important;
+        padding: 18px 20px !important;
+    }
+
+    #toothMaskResult .tooth-report-summary
+        + .tooth-report-section {
+        margin-top: 26px !important;
+    }
+
+    #toothMaskResult .tooth-report-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+
+/* =========================================================
+   ALIGN TOOTH HEADER + SUMMARY WIDTH
+========================================================= */
+
+#toothMaskResult .tooth-report-header,
+#toothMaskResult .tooth-report-summary {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+}
+
+/* Make both use exactly the same horizontal footprint */
+#toothMaskResult .tooth-report-header {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+#toothMaskResult .tooth-report-summary {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Make the summary content span the full report width */
+#toothMaskResult .tooth-report-summary p {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+/* Keep the summary visually separated from the header */
+#toothMaskResult .tooth-report-summary {
+    margin-top: 18px !important;
+}
+
+/* =========================================================
+   FIX — Visualization Instructions
+========================================================= */
+
+#toothMaskResult .tooth-report-visualization {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+
+    margin: 22px 0 0 !important;
+    padding: 20px 24px 20px 54px !important;
+
+    border: 1px solid #bfe4d9 !important;
+    border-left: 3px solid #16826e !important;
+    border-radius: 8px !important;
+
+    background: #eef8f4 !important;
+}
+
+/* Heading */
+#toothMaskResult .tooth-report-visualization h4 {
+    margin: 0 0 8px !important;
+
+    color: #14594f !important;
+
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+}
+
+/* Instruction text */
+#toothMaskResult .tooth-report-visualization p {
+    width: 100% !important;
+    max-width: none !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    color: #46665f !important;
+
+    font-size: 14px !important;
+    line-height: 1.65 !important;
+}
+
+/* Keep the icon separate from the text */
+#toothMaskResult .tooth-report-visualization::before {
+    position: absolute !important;
+
+    top: 19px !important;
+    left: 20px !important;
+
+    color: #12a485 !important;
+
+    font-size: 18px !important;
+    line-height: 1 !important;
+
+    z-index: 2 !important;
+}
+
+/* Make sure the instruction box isn't constrained by
+   an older report-card rule */
+#toothMaskResult .tooth-report-card,
+#toothMaskResult .tooth-report-visualization {
+    overflow: visible !important;
+}
+
+/* Mobile */
+@media (max-width: 760px) {
+    #toothMaskResult .tooth-report-visualization {
+        padding: 18px 18px 18px 48px !important;
+    }
+
+    #toothMaskResult .tooth-report-visualization::before {
+        left: 17px !important;
+        top: 18px !important;
+    }
+}
+
+
+/* =========================================================
+   SIMOURA — PRECISION TOOTH ANALYSIS
+   Localization Reference — Match Reference UI
+========================================================= */
+
+/* ---------------------------------------------------------
+   PRECISION PANEL
+--------------------------------------------------------- */
+
+.adv-panel {
+    position: relative !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* ---------------------------------------------------------
+   START ANALYSIS ACTION BAR
+--------------------------------------------------------- */
+
+.adv-panel > .row:first-of-type {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+
+    width: 100% !important;
+    min-height: 68px !important;
+
+    box-sizing: border-box !important;
+
+    margin: 26px 0 22px !important;
+    padding: 14px 18px !important;
+
+    border: 1px solid #dce8e2 !important;
+    border-radius: 7px !important;
+
+    background: #f1f7f4 !important;
+}
+
+.adv-panel > .row:first-of-type::before {
+    content: "🦷";
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 38px !important;
+    height: 38px !important;
+
+    margin-right: 14px !important;
+
+    color: #12695d !important;
+    font-size: 25px !important;
+}
+
+/* Start button */
+#startPreciseToothBtn {
+    margin-left: auto !important;
+
+    min-height: 42px !important;
+    padding: 0 22px !important;
+
+    border-radius: 5px !important;
+}
+
+/* ---------------------------------------------------------
+   STATUS
+--------------------------------------------------------- */
+
+#preciseLocalizationStatus {
+    margin: -10px 0 18px !important;
+}
+
+/* ---------------------------------------------------------
+   TOOTH SELECTOR ROW
+--------------------------------------------------------- */
+
+.adv-panel > .row[style*="align-items:end"] {
+    display: flex !important;
+    align-items: flex-end !important;
+
+    gap: 12px !important;
+
+    width: 100% !important;
+
+    margin: 0 0 16px !important;
+    padding: 0 !important;
+}
+
+.adv-panel > .row[style*="align-items:end"] > div {
+    flex: 0 0 280px !important;
+}
+
+.adv-panel > .row[style*="align-items:end"] label {
+    margin-bottom: 7px !important;
+
+    color: #60736d !important;
+
+    font-size: 10px !important;
+    font-weight: 800 !important;
+
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+}
+
+#toothSelect {
+    width: 100% !important;
+    height: 40px !important;
+
+    padding: 0 12px !important;
+
+    border: 1px solid #d4e3dd !important;
+    border-radius: 5px !important;
+
+    background: #fff !important;
+
+    color: #164f47 !important;
+
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+#testToothMaskBtn {
+    min-height: 40px !important;
+    padding: 0 20px !important;
+
+    border-radius: 5px !important;
+}
+
+/* ---------------------------------------------------------
+   DIVIDER BEFORE LOCALIZATION
+--------------------------------------------------------- */
+
+.adv-panel > .row[style*="align-items:end"] {
+    border-bottom: 1px solid #dce7e2 !important;
+    padding-bottom: 16px !important;
+}
+
+/* ---------------------------------------------------------
+   LOCALIZATION RESULT
+--------------------------------------------------------- */
+
+#toothMaskResult {
+    width: 100% !important;
+
+    margin-top: 0 !important;
+    padding: 0 !important;
+
+    box-sizing: border-box !important;
+}
+
+/* Kill old two-column layout */
+#toothMaskResult > .up {
+    display: block !important;
+
+    width: 100% !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Localization column */
+#toothMaskResult > .up > div:first-child {
+    width: 100% !important;
+    max-width: none !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ---------------------------------------------------------
+   LOCALIZATION TITLE
+--------------------------------------------------------- */
+
+#toothMaskResult h3 {
+    margin: 0 !important;
+
+    color: #124d45 !important;
+
+    font-family: "Cormorant Garamond", Georgia, serif !important;
+
+    font-size: 28px !important;
+    font-weight: 500 !important;
+    line-height: 1.15 !important;
+}
+
+#toothMaskMeta {
+    width: 100% !important;
+
+    margin: 7px 0 12px !important;
+
+    color: #60736d !important;
+
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+}
+
+/* ---------------------------------------------------------
+   LOCALIZATION IMAGE
+--------------------------------------------------------- */
+
+#toothMaskPreview {
+    display: block !important;
+
+    width: 100% !important;
+    height: 347px !important;
+
+    box-sizing: border-box !important;
+
+    margin: 0 !important;
+
+    padding: 0 !important;
+
+    border: 1px solid #d8e5df !important;
+    border-radius: 6px !important;
+
+    background: #f1f6f3 !important;
+
+    object-fit: cover !important;
+    object-position: center center !important;
+}
+
+/* ---------------------------------------------------------
+   IMAGE NOTES
+--------------------------------------------------------- */
+
+#toothMaskPreview + p {
+    margin: 8px 0 0 !important;
+
+    color: #60736d !important;
+
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+}
+
+#toothMaskStatus {
+    margin: 10px 0 0 !important;
+
+    color: #60736d !important;
+
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+}
+
+/* ---------------------------------------------------------
+   TOOTH ANALYSIS REPORT
+   Keep it BELOW the localization image.
+--------------------------------------------------------- */
+
+#toothMaskResult > .up > div:last-child {
+    width: 100% !important;
+    max-width: none !important;
+
+    margin: 22px 0 0 !important;
+    padding: 0 !important;
+}
+
+/* Status above report */
+#toothAnalysisStatus {
+    margin: 0 0 14px !important;
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------- */
+
+@media (max-width: 760px) {
+
+    .adv-panel > .row:first-of-type {
+        min-height: 60px !important;
+        padding: 12px !important;
+    }
+
+    .adv-panel > .row:first-of-type::before {
+        display: none !important;
+    }
+
+    .adv-panel > .row[style*="align-items:end"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .adv-panel > .row[style*="align-items:end"] > div {
+        flex: none !important;
+        width: 100% !important;
+    }
+
+    #testToothMaskBtn {
+        width: 100% !important;
+    }
+
+    #toothMaskPreview {
+        height: 300px !important;
+    }
+
+    #toothMaskResult h3 {
+        font-size: 25px !important;
+    }
+}
+
+
+
+
+/* ====================================== */
+.adv-panel > .row[style*="align-items:end"] {
+    border-bottom: none !important;
+    padding-bottom: 16px !important;
+}
+
+.adv-panel > .row[style*="align-items:end"] label {
+    margin-bottom: 7px !important;
+    color: #60736d !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+    padding-top: 10px;
+}
+
+#toothMaskResult>.up>div:first-child>h3, #toothMaskResult h3 {
+    color: #123f38;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 28px;
+    line-height: 1.1;
+    margin: 0 0 6px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+#toothMaskMeta {
+    width: 100% !important;
+    margin:7px 0 12px !important;
+    color: #60736d !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+    /* display: none; */
+}
+
+#visualizeToothBtn {
+    margin-top: 18px !important;
+    display: none !important;
+}
+
+#toothMaskMeta{
+    display: none !important;
+}
+
+#toothAnalysisStatus {
+    margin: 0 0 14px !important;
+    display: none !important;
+}
+
+#original-vs-pricise-title{
+    display: none !important;
+}
+
+
+
+/* =======================Shimmer================== */
+
+/* =========================================================
+   TOOTH LOCALIZATION IMAGE LOADER
+========================================================= */
+
+.tooth-mask-image-area {
+    position: relative;
+
+    width: 100%;
+    height: 347px;
+
+    margin-top: 10px;
+
+    overflow: hidden;
+
+    border: 1px solid #d8e5df;
+    border-radius: 6px;
+
+    background: #eef4f1;
+}
+
+/* ---------------------------------------------------------
+   SHIMMER BACKGROUND
+--------------------------------------------------------- */
+
+.tooth-mask-loading {
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            90deg,
+            #edf3f0 0%,
+            #f7faf8 42%,
+            #e7efeb 52%,
+            #edf3f0 100%
+        );
+
+    background-size: 250% 100%;
+
+    animation: simouraToothShimmer 1.7s ease-in-out infinite;
+
+    z-index: 2;
+}
+
+/* Moving light sweep */
+
+.tooth-mask-loading::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            105deg,
+            transparent 25%,
+            rgba(255,255,255,.55) 50%,
+            transparent 75%
+        );
+
+    transform: translateX(-100%);
+
+    animation: simouraToothSweep 1.8s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------
+   LOADING CONTENT
+--------------------------------------------------------- */
+
+.tooth-loading-content {
+    position: relative;
+    z-index: 3;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 11px 17px;
+
+    border: 1px solid rgba(18,89,79,.12);
+    border-radius: 999px;
+
+    background: rgba(255,255,255,.78);
+
+    backdrop-filter: blur(8px);
+}
+
+/* Small animated dot */
+
+.tooth-loading-pulse {
+    width: 9px;
+    height: 9px;
+
+    flex: 0 0 9px;
+
+    border-radius: 50%;
+
+    background: #16826e;
+
+    box-shadow:
+        0 0 0 0 rgba(22,130,110,.35);
+
+    animation: simouraToothPulse 1.4s infinite;
+}
+
+/* Text */
+
+.tooth-loading-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tooth-loading-text strong {
+    color: #165b51;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    line-height: 1.3;
+}
+
+.tooth-loading-text span {
+    color: #6a7e78;
+
+    font-size: 10px;
+
+    line-height: 1.35;
+}
+
+/* ---------------------------------------------------------
+   REAL IMAGE
+--------------------------------------------------------- */
+
+#toothMaskPreview {
+    position: absolute;
+    inset: 0;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    display: none;
+
+    border: 0 !important;
+    border-radius: 0 !important;
+
+    object-fit: cover !important;
+    object-position: center center !important;
+
+    z-index: 1;
+}
+
+/* ---------------------------------------------------------
+   WHEN REAL IMAGE IS READY
+--------------------------------------------------------- */
+
+.tooth-mask-image-area.is-ready .tooth-mask-loading {
+    display: none;
+}
+
+.tooth-mask-image-area.is-ready #toothMaskPreview {
+    display: block;
+}
+
+/* ---------------------------------------------------------
+   ANIMATIONS
+--------------------------------------------------------- */
+
+@keyframes simouraToothShimmer {
+
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+
+}
+
+@keyframes simouraToothSweep {
+
+    0% {
+        transform: translateX(-100%);
+    }
+
+    55%,
+    100% {
+        transform: translateX(100%);
+    }
+
+}
+
+@keyframes simouraToothPulse {
+
+    0% {
+        box-shadow: 0 0 0 0 rgba(22,130,110,.35);
+    }
+
+    70% {
+        box-shadow: 0 0 0 8px rgba(22,130,110,0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(22,130,110,0);
+    }
+
+}
+
+/* Mobile */
+
+@media (max-width: 760px) {
+
+    .tooth-mask-image-area {
+        height: 300px;
+    }
+
+    .tooth-loading-content {
+        padding: 10px 14px;
+    }
+
+    .tooth-loading-text span {
+        display: none;
+    }
+
+}
+
+
+.precise-start-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    width: 100%;
+}
+
+.precise-start-row #preciseLocalizationStatus {
+    order: 1;
+    flex: 1;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left;
+}
+
+.precise-start-row #startPreciseToothBtn {
+    order: 2;
+    flex: 0 0 auto;
+    margin: 0 !important;
+}
+
+@media (max-width: 700px) {
+    .precise-start-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .precise-start-row #startPreciseToothBtn {
+        width: 100%;
+    }
+}

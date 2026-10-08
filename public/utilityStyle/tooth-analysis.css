@@ -1,0 +1,227 @@
+/* =========================================================
+   SELECTED TOOTH ANALYSIS
+========================================================= */
+
+#toothAnalysisReport {
+    width: 100%;
+    margin: 28px auto 0;
+    box-sizing: border-box;
+}
+
+
+/* Main card */
+
+.tooth-report-card {
+    width: min(100%, 1050px);
+    margin: 0 auto;
+
+    background: #ffffff;
+
+    border: 1px solid #dce7e2;
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.tooth-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 26px 30px;
+
+    background: #f8faf8;
+
+    border-bottom: 1px solid #e2ebe7;
+}
+
+.tooth-report-eyebrow {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: #b28d45;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.tooth-report-header h3 {
+    margin: 0;
+
+    color: #123f38;
+
+    font-family: "Cormorant Garamond", Georgia, serif;
+
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 600;
+}
+
+.tooth-report-badge {
+    padding: 8px 13px;
+
+    border: 1px solid #c8ded7;
+    border-radius: 999px;
+
+    background: #edf7f3;
+
+    color: #0b5b4f;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   SUMMARY
+========================================================= */
+
+.tooth-report-summary-section {
+    padding: 26px 30px 24px;
+}
+
+.tooth-report-section-label {
+    margin-bottom: 10px;
+
+    color: #60736d;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.tooth-report-summary {
+    max-width: 850px;
+
+    margin: 0;
+
+    color: #173f3a;
+
+    font-size: 16px;
+    line-height: 1.75;
+}
+
+
+/* =========================================================
+   ASSESSMENT
+========================================================= */
+
+.tooth-report-section {
+    padding: 0 30px 28px;
+}
+
+.tooth-findings-grid {
+    display: grid;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 10px 14px;
+}
+
+
+/* Individual finding */
+
+.tooth-finding {
+    padding: 16px 18px;
+
+    background: #f8faf9;
+
+    border: 1px solid #e4ece8;
+    border-radius: 12px;
+
+    box-sizing: border-box;
+}
+
+.tooth-finding-label {
+    margin-bottom: 6px;
+
+    color: #60736d;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.tooth-finding-value {
+    color: #173f3a;
+
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   VISUALIZATION DIRECTION
+========================================================= */
+
+.tooth-visualization-direction {
+    margin: 0 30px 30px;
+
+    padding: 20px 22px;
+
+    background: #edf7f3;
+
+    border-left: 3px solid #0b5b4f;
+
+    border-radius: 10px;
+}
+
+.tooth-visualization-direction .tooth-report-section-label {
+    color: #0b5b4f;
+}
+
+.tooth-visualization-direction p {
+    margin: 0;
+
+    color: #234f49;
+
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 760px) {
+
+    .tooth-report-header {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        padding: 22px;
+    }
+
+    .tooth-report-summary-section,
+    .tooth-report-section {
+        padding-left: 22px;
+        padding-right: 22px;
+    }
+
+    .tooth-findings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tooth-visualization-direction {
+        margin-left: 22px;
+        margin-right: 22px;
+    }
+}

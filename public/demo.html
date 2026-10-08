@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+    <title>Demo — SIMOURA AI Smile Simulation</title>
+
+    <meta name="description"
+        content="Explore AI-assisted dental smile analysis and visualization from a single smile photograph with SIMOURA.">
+
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DM+Sans:wght@400;500&display=swap">
+
+    <link rel="stylesheet" href="global.css">
+    <link rel="stylesheet" href="utilityStyle/user-upload-ui.css">
+    <link rel="stylesheet" href="utilityStyle/ai-report.css">
+    <link rel="stylesheet" href="utilityStyle/visualization.css">
+    <link rel="stylesheet" href="utilityStyle/tooth-analysis.css">
+    <link rel="stylesheet" href="utilityStyle/precision-tooth-dashboard.css">
+</head>
+
+<body>
+
+    <!-- =========================
+         NAVIGATION
+    ========================== -->
+
+    <header class="nav">
+        <div class="w">
+
+            <a class="logo" href="index.html">SIMOURA</a>
+
+            <nav aria-label="Main">
+                <a href="how-it-works.html">How It Works</a>
+                <a href="demo.html" aria-current="page">Demo</a>
+                <a href="about.html">About</a>
+            </nav>
+
+            <a class="btn" href="demo.html">Try Demo v4</a>
+
+        </div>
+    </header>
+
+
+    <!-- =========================
+         MAIN
+    ========================== -->
+
+    <main class="w" style="padding-bottom:70px">
+
+        <!-- =========================
+             PAGE HEADER
+        ========================== -->
+
+        <header style="padding:clamp(36px,5vw,64px) 0 0">
+
+            <p class="eye">Simoura AI smile simulation</p>
+
+            <h1 style="font-size:clamp(40px,5vw,68px)">
+                Explore your smile with AI.
+            </h1>
+
+            <p class="lead" style="margin-top:18px">
+                Upload a clear smile photograph to begin an AI-assisted assessment
+                and visualization.
+            </p>
+
+            <p class="status" id="statusText">
+                AI system ready
+            </p>
+
+            <ol class="flowbar" aria-label="Demo workflow">
+                <li>01 Upload</li>
+                <li>02 AI Analysis</li>
+                <li>03 Review</li>
+                <li>04 Visualize</li>
+                <li class="adv">
+                    Precision: FDI Localization → Select Tooth → Verify → Tooth Visualization
+                </li>
+            </ol>
+
+        </header>
+
+
+        <!-- =========================
+             UPLOAD SECTION
+        ========================== -->
+
+        <section class="panel" aria-labelledby="t-up">
+
+            <h2 id="t-up">
+                Upload a smile photograph
+            </h2>
+
+            <div class="up">
+
+                <!-- UPLOAD / PREVIEW -->
+
+                <div>
+
+                    <!-- Upload zone -->
+
+                    <div id="uploadZone" class="zone" tabindex="0" role="button"
+                        aria-label="Choose or drop a smile photograph">
+
+                        <p style="font-size:18px;margin-bottom:4px">
+                            Drag &amp; drop your image here
+                        </p>
+
+                        <p class="note">
+                            JPG, PNG or WEBP · maximum 10 MB
+                        </p>
+
+                        <label class="btn" for="fileInput" style="margin-top:10px">
+                            Choose Photo
+                        </label>
+
+                        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp"
+                            style="position:absolute;width:1px;height:1px;opacity:0">
+
+                    </div>
+
+
+                    <!-- Uploaded image preview -->
+
+                    <div id="previewSection" class="hidden">
+
+                        <img id="previewImage" alt="Your uploaded smile photograph">
+
+                        <div class="file">
+
+                            <img id="fileThumbnail" alt="">
+
+                            <div>
+
+                                <strong id="fileName"></strong>
+
+                                <div id="fileMeta" class="note"></div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="row" style="margin-top:0">
+
+                            <button id="analyzeBtn" class="btn" type="button">
+                                Analyze Smile →
+                            </button>
+
+                            <button id="changeImageBtn" class="btn o" type="button">
+                                Change Image
+                            </button>
+
+                            <button id="removeImageBtn" class="btn o" type="button">
+                                Remove Image
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PHOTO TIPS -->
+
+                <div>
+
+                    <h3>Tips for best results</h3>
+
+                    <ul class="tips">
+
+                        <li>
+                            <!-- <span class="tip-icon">☀</span> -->
+                            <span>
+                                <strong>Good Lighting</strong>
+                                <small>Use natural light and avoid shadows.</small>
+                            </span>
+                        </li>
+
+                        <li>
+                            <!-- <span class="tip-icon">☺</span> -->
+                            <span>
+                                <strong>Clear Smile</strong>
+                                <small>Show your teeth clearly with a natural smile.</small>
+                            </span>
+                        </li>
+
+                        <li>
+                            <!-- <span class="tip-icon">⌗</span> -->
+                            <span>
+                                <strong>Front View</strong>
+                                <small>Take a straight, front-facing photo.</small>
+                            </span>
+                        </li>
+
+                        <li>
+                            <!-- <span class="tip-icon">▣</span> -->
+                            <span>
+                                <strong>High Quality</strong>
+                                <small>Use a clear, high-resolution image.</small>
+                            </span>
+                        </li>
+
+                        <li>
+                            <!-- <span class="tip-icon">⊘</span> -->
+                            <span>
+                                <strong>No Filters</strong>
+                                <small>Avoid heavy filters or edits.</small>
+                            </span>
+                        </li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <p class="note" style="margin-top:20px">
+                Images are used during the current demo session.
+                Download results you want to keep before ending the session.
+            </p>
+
+        </section>
+
+
+        <!-- =========================
+             PROCESSING
+        ========================== -->
+
+        <section id="processing" class="panel hidden" role="status" aria-live="polite">
+
+            <h2>
+                <span class="pulse"></span>
+                Analyzing your smile
+            </h2>
+
+            <p id="processingText" class="lead">
+                Reviewing image quality, examining visible smile characteristics
+                and preparing your AI-assisted assessment.
+            </p>
+
+        </section>
+
+
+        <!-- ERROR -->
+
+        <div id="errorBox" class="err hidden" role="alert"></div>
+
+
+        <!-- =========================
+             AI REPORT
+        ========================== -->
+
+        <section id="reportSection" class="hidden">
+
+            <!-- AI ASSESSMENT -->
+
+            <div class="panel">
+
+                <h2>
+                    AI Smile Assessment
+                </h2>
+
+                <p id="summaryText" style="max-width:70ch;font-size:18px"></p>
+
+
+                <!-- CHARACTERISTICS -->
+
+                <div class="chs">
+
+                    <div>
+                        <span>Alignment</span>
+                        <p id="alignment">—</p>
+                    </div>
+
+                    <div>
+                        <span>Crowding</span>
+                        <p id="crowding">—</p>
+                    </div>
+
+                    <div>
+                        <span>Tooth shade</span>
+                        <p id="toothShade">—</p>
+                    </div>
+
+                    <div>
+                        <span>Smile arc</span>
+                        <p id="smileArc">—</p>
+                    </div>
+
+                    <div>
+                        <span>Gum display</span>
+                        <p id="gumDisplay">—</p>
+                    </div>
+
+                    <div>
+                        <span>Tooth proportions</span>
+                        <p id="toothProportions">—</p>
+                    </div>
+
+                </div>
+
+
+                <p class="note">
+                    Based on visible features in the uploaded photograph.
+                    This is an AI-assisted visualization assessment,
+                    not a clinical diagnosis.
+                </p>
+
+            </div>
+
+
+            <!-- OBSERVATIONS / TREATMENTS -->
+
+            <div class="up" style="margin-top:26px">
+
+                <div class="panel" style="margin:0">
+
+                    <h3>
+                        Visible observations
+                    </h3>
+
+                    <ul id="observationsList"></ul>
+
+                </div>
+
+
+                <div class="panel" style="margin:0">
+
+                    <h3>
+                        Potential visualization directions
+                    </h3>
+
+                    <div id="treatmentList"></div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 GENERATION
+            ========================== -->
+
+            <div id="generationCard" class="panel">
+
+                <h2>
+                    Generate Smile Visualization
+                </h2>
+
+                <div id="generationAction">
+
+                    <p class="lead">
+                        Create an illustrative visualization based on the AI
+                        assessment and your original photograph.
+                    </p>
+
+
+                    <!-- QUALITY WARNING -->
+
+                    <div id="qualityWarning" class="err hidden">
+
+                        <strong>
+                            Photo quality notes
+                        </strong>
+
+                        <ul id="warningList"></ul>
+
+                    </div>
+
+
+                    <button id="generateBtn" class="btn" type="button">
+                        Generate Smile Visualization →
+                    </button>
+
+                </div>
+
+
+                <p id="generationProgress" class="hidden" role="status">
+                    <span class="pulse"></span>
+                    Creating your visualization…
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- =========================
+             RESULT / VISUALIZATION
+        ========================== -->
+
+        <section id="resultSection" class="panel result-section hidden" aria-labelledby="t-res">
+
+            <!-- RESULT HEADER -->
+
+            <div class="result-hero">
+
+                <div class="result-title-area">
+
+                    <span class="result-ai-badge">
+                        <span class="result-sparkle">✦</span>
+                        AI-Powered Visualization
+                    </span>
+
+                    <h2 id="t-res">
+                        See Your Potential Smile
+                    </h2>
+
+                    <p>
+                        Compare your current smile with an AI-generated
+                        visualization of your improved smile.
+                    </p>
+
+                </div>
+
+
+                <!-- BENEFITS -->
+
+                <div class="result-benefits">
+
+                    <div class="result-benefit">
+
+                        <span class="benefit-icon">
+                            ✓
+                        </span>
+
+                        <span>
+                            <strong>Realistic</strong>
+                            <small>Results</small>
+                        </span>
+
+                    </div>
+
+
+                    <div class="result-benefit">
+
+                        <span class="benefit-icon">
+                            ◷
+                        </span>
+
+                        <span>
+                            <strong>Instant</strong>
+                            <small>Preview</small>
+                        </span>
+
+                    </div>
+
+
+                    <div class="result-benefit">
+
+                        <span class="benefit-icon">
+                            ♙
+                        </span>
+
+                        <span>
+                            <strong>Your Photos</strong>
+                            <small>Stay Private</small>
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- BEFORE / AFTER -->
+
+            <div class="result-comparison">
+
+                <!-- ORIGINAL -->
+
+                <figure class="result-image-card">
+
+                    <div class="result-image-label original-label">
+                        Original
+                    </div>
+
+                    <button class="image-zoom" type="button" aria-label="View original image">
+                        ⌕
+                    </button>
+
+                    <img id="beforeImage" alt="Original smile photograph">
+
+                </figure>
+
+
+                <!-- AI RESULT -->
+
+                <figure class="result-image-card ai-result-card">
+
+                    <div class="result-image-label ai-label">
+                        <span>✦</span>
+                        AI Visualization
+                    </div>
+
+                    <button class="image-zoom" type="button" aria-label="View AI visualization">
+                        ⌕
+                    </button>
+
+                    <img id="afterImage" alt="AI-generated illustrative smile visualization">
+
+                </figure>
+
+            </div>
+
+
+            <!-- ACTION BAR -->
+
+            <div class="result-action-bar">
+
+                <div class="result-thumbnails">
+
+                    <div class="result-thumbnail active">
+
+                        <img id="beforeThumbnail" alt="Original thumbnail">
+
+                        <span>
+                            Original
+                        </span>
+
+                    </div>
+
+
+                    <div class="result-thumbnail">
+
+                        <img id="afterThumbnail" alt="AI result thumbnail">
+
+                        <span>
+                            AI Result
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="result-buttons">
+
+                    <button id="downloadBeforeBtn" class="result-btn result-btn-outline" type="button">
+                        ↓
+                        <span>
+                            Download Original
+                        </span>
+                    </button>
+
+
+                    <button id="downloadAfterBtn" class="result-btn result-btn-primary" type="button">
+                        ↓
+                        <span>
+                            Download Visualization
+                        </span>
+                    </button>
+
+
+                    <button id="generateAgainBtn" class="result-btn result-btn-outline" type="button">
+                        ↻
+                        <span>
+                            Generate Again
+                        </span>
+                    </button>
+
+
+                    <button id="newPatientBtn" class="result-btn result-btn-outline" type="button">
+                        ▧
+                        <span>
+                            Start New Image
+                        </span>
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- BENEFIT STRIP -->
+
+            <div class="result-benefit-strip">
+
+                <div class="result-feature">
+
+                    <div class="feature-icon">
+                        ♡
+                    </div>
+
+                    <div>
+                        <strong>Whiter Teeth</strong>
+                        <small>Brighter, natural-looking teeth</small>
+                    </div>
+
+                </div>
+
+
+                <div class="result-feature">
+
+                    <div class="feature-icon">
+                        ✦
+                    </div>
+
+                    <div>
+                        <strong>Improved Alignment</strong>
+                        <small>Straighter, well-aligned teeth</small>
+                    </div>
+
+                </div>
+
+
+                <div class="result-feature">
+
+                    <div class="feature-icon">
+                        ◡
+                    </div>
+
+                    <div>
+                        <strong>Healthier Gums</strong>
+                        <small>Balanced gum appearance</small>
+                    </div>
+
+                </div>
+
+
+                <div class="result-feature">
+
+                    <div class="feature-icon">
+                        ◇
+                    </div>
+
+                    <div>
+                        <strong>Natural Results</strong>
+                        <small>Realistic and personalized</small>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- DISCLAIMER -->
+
+            <p class="result-disclaimer">
+                An illustrative preview, not a final result or guaranteed outcome.
+            </p>
+
+        </section>
+
+
+        <!-- ==================================================
+             PRECISION TOOTH ANALYSIS
+             DISABLED UNTIL FULL SMILE ANALYSIS IS COMPLETE
+        =================================================== -->
+
+        <section class="panel adv-panel" aria-labelledby="t-pr">
+
+            <p class="eye">
+                Advanced
+            </p>
+
+            <h2 id="t-pr">
+                Precision Tooth Analysis
+            </h2>
+
+            <p class="lead">
+                Explore an individually analyzable tooth using standard FDI numbering.
+            </p>
+
+
+            <!-- START PRECISE ANALYSIS -->
+            <!-- START PRECISE ANALYSIS -->
+            <div class="row precise-start-row">
+
+                <button id="startPreciseToothBtn" class="btn" type="button" disabled aria-disabled="true">
+                    Start Precise Tooth Analysis →
+                </button>
+
+                <p id="preciseLocalizationStatus" class="note precise-start-status" role="status">
+                    Complete the full smile analysis first to unlock precise tooth analysis.
+                </p>
+
+            </div>
+
+            <!-- TOOTH SELECTION -->
+
+            <div class="row" style="align-items:end">
+
+                <div>
+
+                    <label for="toothSelect" class="note" style="display:block">
+                        Kimi-approved tooth
+                    </label>
+
+                    <select id="toothSelect" disabled aria-disabled="true">
+                        <option value="">
+                            Start precise analysis first
+                        </option>
+                    </select>
+
+                </div>
+
+
+                <button id="testToothMaskBtn" class="btn" type="button" disabled aria-disabled="true">
+                    Analyze Selected Tooth →
+                </button>
+
+            </div>
+
+
+            <!-- TOOTH ANALYSIS RESULT -->
+
+            <div id="toothMaskResult" class="hidden" style="margin-top:28px">
+
+                <div class="up">
+
+                    <!-- REFERENCE -->
+
+                    <div>
+
+                        <h3>
+                            AI Tooth Localization Reference
+                        </h3>
+
+                        <div id="toothMaskMeta" class="note"></div>
+
+                        <div id="toothMaskImageArea" class="tooth-mask-image-area">
+
+                            <div id="toothMaskLoading" class="tooth-mask-loading" aria-live="polite">
+                                <div class="tooth-loading-content">
+                                    <div class="tooth-loading-pulse"></div>
+
+                                    <div class="tooth-loading-text">
+                                        <strong>Analyzing tooth location</strong>
+                                        <span>Kimi is identifying individually analyzable teeth...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <img id="toothMaskPreview" alt="Smile photograph with the selected tooth highlighted">
+
+                        </div>
+
+                        <p class="note" style="margin-top:8px">
+                            The highlighted marker indicates the tooth selected
+                            for the precision analysis.
+                        </p>
+
+                        <p id="toothMaskStatus" class="note" role="status"></p>
+
+                    </div>
+
+
+                    <!-- ANALYSIS -->
+
+                    <div>
+
+                        <p id="toothAnalysisStatus" class="note" role="status"></p>
+
+                        <div id="toothAnalysisReport"></div>
+
+                        <button id="visualizeToothBtn" class="btn" type="button" style="margin-top:14px">
+                            Visualize Selected Tooth →
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <h3 style="margin-top:28px" id="original-vs-pricise-title">
+                    Original Tooth View vs. AI Tooth Visualization
+                </h3>
+
+                <div id="toothVisualizationPreview"></div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =========================
+         JAVASCRIPT
+    ========================== -->
+
+    <script src="app.js"></script>
+
+    <script src="live-css.js"></script>
+
+
+    <!-- ==================================================
+         PRECISION ANALYSIS STATE CONTROL
+    =================================================== -->
+
+    <script>
+
+        (function () {
+
+            const preciseButton =
+                document.getElementById("startPreciseToothBtn");
+
+            const toothSelect =
+                document.getElementById("toothSelect");
+
+            const toothAnalyzeButton =
+                document.getElementById("testToothMaskBtn");
+
+            const reportSection =
+                document.getElementById("reportSection");
+
+            const previewSection =
+                document.getElementById("previewSection");
+
+            const status =
+                document.getElementById("preciseLocalizationStatus");
+
+
+            if (!preciseButton) {
+                return;
+            }
+
+
+            /*
+             * Initial state:
+             *
+             * No uploaded image
+             * → Precision analysis disabled
+             */
+
+            preciseButton.disabled = true;
+            preciseButton.setAttribute("aria-disabled", "true");
+
+
+            /*
+             * Tooth selection must also remain disabled
+             * until precise localization has actually started.
+             */
+
+            if (toothSelect) {
+
+                toothSelect.disabled = true;
+                toothSelect.setAttribute("aria-disabled", "true");
+
+            }
+
+
+            if (toothAnalyzeButton) {
+
+                toothAnalyzeButton.disabled = true;
+                toothAnalyzeButton.setAttribute("aria-disabled", "true");
+
+            }
+
+
+            /*
+             * Check whether full AI analysis is complete.
+             *
+             * reportSection becomes visible when the full
+             * smile analysis/report has been successfully created.
+             */
+
+            function updatePrecisionState() {
+
+                const hasPhoto =
+                    previewSection &&
+                    !previewSection.classList.contains("hidden");
+
+                const analysisComplete =
+                    reportSection &&
+                    !reportSection.classList.contains("hidden");
+
+
+                /*
+                 * No uploaded photo
+                 * → always disabled
+                 */
+
+                if (!hasPhoto) {
+
+                    preciseButton.disabled = true;
+
+                    preciseButton.setAttribute(
+                        "aria-disabled",
+                        "true"
+                    );
+
+                    if (status) {
+
+                        status.textContent =
+                            "Upload a smile photograph and complete the full smile analysis first.";
+
+                    }
+
+                    return;
+                }
+
+
+                /*
+                 * Photo exists but full analysis has not finished
+                 * → still disabled
+                 */
+
+                if (!analysisComplete) {
+
+                    preciseButton.disabled = true;
+
+                    preciseButton.setAttribute(
+                        "aria-disabled",
+                        "true"
+                    );
+
+                    if (status) {
+
+                        status.textContent =
+                            "Complete the full smile analysis first to unlock precise tooth analysis.";
+
+                    }
+
+                    return;
+                }
+
+
+                /*
+                 * Full analysis complete
+                 * → enable precise analysis
+                 */
+
+                preciseButton.disabled = false;
+
+                preciseButton.setAttribute(
+                    "aria-disabled",
+                    "false"
+                );
+
+                if (status) {
+
+                    status.textContent =
+                        "Full smile analysis is ready. You can now start precise tooth analysis.";
+
+                }
+
+            }
+
+
+            /*
+             * Watch the report section and upload preview.
+             *
+             * This means we do not need to modify the existing
+             * V4 application logic just to control this button.
+             */
+
+            const observer =
+                new MutationObserver(function () {
+
+                    updatePrecisionState();
+
+                });
+
+
+            if (reportSection) {
+
+                observer.observe(
+                    reportSection,
+                    {
+                        attributes: true,
+                        attributeFilter: ["class"]
+                    }
+                );
+
+            }
+
+
+            if (previewSection) {
+
+                observer.observe(
+                    previewSection,
+                    {
+                        attributes: true,
+                        attributeFilter: ["class"]
+                    }
+                );
+
+            }
+
+
+            /*
+             * Run once on page load.
+             */
+
+            updatePrecisionState();
+
+
+        })();
+
+    </script>
+
+
+    <!-- =========================
+         FOOTER
+    ========================== -->
+
+    <footer class="foot">
+
+        <div class="w">
+
+            SIMOURA provides AI-assisted visualization for demonstration
+            and communication purposes. It does not replace a dental
+            examination, diagnosis, treatment plan, or professional
+            clinical judgment.
+
+        </div>
+
+    </footer>
+
+</body>
+
+</html>

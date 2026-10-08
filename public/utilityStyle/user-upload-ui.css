@@ -1,0 +1,1244 @@
+/* =========================================================
+
+   SIMOURA — PATIENT PHOTO UPLOAD CARD
+
+   Reference-inspired premium uploaded state
+
+   ========================================================= */
+
+
+
+/* Main upload panel */
+
+section[aria-labelledby="t-up"] {
+
+    padding: 0;
+
+    overflow: hidden;
+
+    background: #fdfcf9;
+
+}
+
+
+
+/* Header */
+
+section[aria-labelledby="t-up"] > h2 {
+
+    padding: 28px 32px 18px;
+
+    margin: 0;
+
+    color: #123f38;
+
+    font-family: "Cormorant Garamond", Georgia, serif;
+
+    font-size: 34px;
+
+    font-weight: 600;
+
+}
+
+
+
+/* Main content grid */
+
+section[aria-labelledby="t-up"] > .up {
+
+    display: grid;
+
+    grid-template-columns: minmax(0, 1fr) 300px;
+
+    gap: 24px;
+
+    padding: 0 20px 28px;
+
+    align-items: stretch;
+
+}
+
+
+
+/* Left patient photo card */
+
+section[aria-labelledby="t-up"] > .up > div:first-child {
+
+    min-width: 0;
+
+    padding: 20px;
+
+    background: #ffffff;
+
+    border: 1px solid #e1e8e4;
+
+    border-radius: 14px;
+
+    box-shadow: 0 8px 30px rgba(18, 63, 56, 0.06);
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Upload zone — initial state
+
+   --------------------------------------------------------- */
+
+
+
+#uploadZone {
+
+    min-height: 270px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+
+
+    background: #edf5f0;
+
+    border: 1px dashed #8ba99e;
+
+    border-radius: 10px;
+
+
+
+    text-align: center;
+
+    transition:
+
+        background 180ms ease,
+
+        border-color 180ms ease;
+
+}
+
+
+
+#uploadZone:hover {
+
+    background: #e8f1ec;
+
+    border-color: #0b5b4f;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Uploaded state
+
+   --------------------------------------------------------- */
+
+
+
+/*
+
+   When V4 makes previewSection visible, hide the original
+
+   drag/drop uploader.
+
+*/
+
+#uploadZone:has(+ #previewSection.visible) {
+
+    display: none;
+
+}
+
+
+
+/*
+
+   Patient photo preview area
+
+*/
+
+#previewSection {
+
+    position: relative;
+
+    display: none;
+
+
+
+    min-height: 330px;
+
+}
+
+
+
+/* V4 adds .visible */
+
+#previewSection.visible {
+
+    display: block;
+
+}
+
+
+
+/* Photo */
+
+#previewImage {
+
+    display: block;
+
+
+
+    width: 100%;
+
+    height: 330px;
+
+
+
+    object-fit: cover;
+
+    object-position: center;
+
+
+
+    background: #edf3ef;
+
+    border-radius: 10px;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Uploaded information
+
+   --------------------------------------------------------- */
+
+
+
+#previewSection .file {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+
+
+    margin-top: 14px;
+
+    padding: 0;
+
+
+
+    background: transparent;
+
+    border: 0;
+
+}
+
+
+
+/* Thumbnail */
+
+#fileThumbnail {
+
+    width: 52px;
+
+    height: 52px;
+
+
+
+    flex: 0 0 52px;
+
+
+
+    object-fit: cover;
+
+
+
+    border-radius: 8px;
+
+    border: 1px solid #d8e5df;
+
+}
+
+
+
+/* Filename */
+
+#fileName {
+
+    display: block;
+
+
+
+    color: #123f38;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+}
+
+
+
+/* File metadata */
+
+#fileMeta {
+
+    margin-top: 3px;
+
+
+
+    color: #60736d;
+
+    font-size: 13px;
+
+}
+
+
+
+/* Uploaded success indicator */
+
+#fileName::before {
+
+    content: "✓  Image uploaded successfully";
+
+
+
+    display: block;
+
+
+
+    margin-bottom: 5px;
+
+
+
+    color: #16844d;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Action buttons
+
+   --------------------------------------------------------- */
+
+
+
+#previewSection .row {
+
+    display: flex;
+
+    gap: 12px;
+
+    margin-top: 16px;
+
+}
+
+
+
+/* Change image */
+
+#changeImageBtn {
+
+    min-height: 48px;
+
+
+
+    padding: 0 24px;
+
+
+
+    color: #123f38;
+
+    background: #ffffff;
+
+
+
+    border: 1px solid #cbd9d3;
+
+    border-radius: 7px;
+
+
+
+    font-size: 14px;
+
+}
+
+
+
+/* Remove image */
+
+#removeImageBtn {
+
+    min-height: 48px;
+
+
+
+    color: #60736d;
+
+    background: transparent;
+
+
+
+    border: 1px solid #d8e5df;
+
+    border-radius: 7px;
+
+}
+
+
+
+/* Continue / Analyze button */
+
+#analyzeBtn {
+
+    min-height: 52px;
+
+    margin-left: auto;
+
+
+
+    padding: 0 34px;
+
+
+
+    color: #ffffff;
+
+    background: #0b5b4f;
+
+
+
+    border: 1px solid #0b5b4f;
+
+    border-radius: 8px;
+
+
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+
+
+    box-shadow: 0 8px 20px rgba(11, 91, 79, 0.15);
+
+
+
+    transition:
+
+        background 180ms ease,
+
+        transform 180ms ease,
+
+        box-shadow 180ms ease;
+
+}
+
+
+
+#analyzeBtn:hover {
+
+    background: #123f38;
+
+    transform: translateY(-1px);
+
+    box-shadow: 0 10px 24px rgba(11, 91, 79, 0.20);
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Tips card
+
+   --------------------------------------------------------- */
+
+
+
+/* =====================================================
+
+   PHOTO TIPS — RESTORE INDIVIDUAL ICONS
+
+   ===================================================== */
+
+
+
+/* Remove the old green checkmark */
+
+section[aria-labelledby="t-up"] .tips li::before {
+
+    content: none !important;
+
+    display: none !important;
+
+}
+
+
+
+/* Don't reserve space for the old checkmark */
+
+section[aria-labelledby="t-up"] .tips li {
+
+    padding-left: 0 !important;
+
+}
+
+
+
+/* Individual icon */
+
+section[aria-labelledby="t-up"] .tips-card .tip-icon,
+
+section[aria-labelledby="t-up"] .tip-icon {
+
+    width: 42px !important;
+
+    height: 42px !important;
+
+    min-width: 42px !important;
+
+
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+
+
+    border-radius: 10px !important;
+
+    background: #ffffff !important;
+
+
+
+    font-size: 20px !important;
+
+    line-height: 1 !important;
+
+
+
+    flex-shrink: 0 !important;
+
+}
+
+
+
+/* Make sure the icon itself is visible */
+
+section[aria-labelledby="t-up"] .tip-icon * {
+
+    display: block !important;
+
+}
+
+
+
+/* Tip row */
+
+section[aria-labelledby="t-up"] .tips-card .tip,
+
+section[aria-labelledby="t-up"] .tips .tip {
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    gap: 14px !important;
+
+
+
+    padding: 10px 14px !important;
+
+    min-height: 58px !important;
+
+
+
+    background: #f5f7f8 !important;
+
+    border-radius: 14px !important;
+
+}
+
+
+
+/* Tip text */
+
+section[aria-labelledby="t-up"] .tip-title {
+
+    margin: 0 0 3px !important;
+
+
+
+    color: #102f2c !important;
+
+    font-size: 13px !important;
+
+    font-weight: 800 !important;
+
+}
+
+
+
+section[aria-labelledby="t-up"] .tip-text {
+
+    margin: 0 !important;
+
+
+
+    color: #60736d !important;
+
+    font-size: 11px !important;
+
+    line-height: 1.4 !important;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Session note
+
+   --------------------------------------------------------- */
+
+
+
+section[aria-labelledby="t-up"] > .note {
+
+    margin: 0;
+
+    padding: 0 32px 26px;
+
+
+
+    color: #81918b;
+
+    font-size: 12px;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Uploaded state — change title to Patient Photo
+
+   --------------------------------------------------------- */
+
+
+
+section[aria-labelledby="t-up"]:has(#previewSection.visible) > h2 {
+
+    font-size: 0;
+
+}
+
+
+
+section[aria-labelledby="t-up"]:has(#previewSection.visible) > h2::after {
+
+    content: "Patient Photo";
+
+
+
+    font-size: 34px;
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Desktop proportions
+
+   --------------------------------------------------------- */
+
+
+
+@media (min-width: 1000px) {
+
+
+
+    #previewImage {
+
+        height: 360px;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"] > .up {
+
+        grid-template-columns: minmax(0, 1fr) 300px;
+
+    }
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Tablet
+
+   --------------------------------------------------------- */
+
+
+
+@media (max-width: 900px) {
+
+
+
+    section[aria-labelledby="t-up"] > .up {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"] > .up > div:last-child {
+
+        margin-top: 0;
+
+    }
+
+
+
+    #previewImage {
+
+        height: 360px;
+
+    }
+
+}
+
+
+
+/* ---------------------------------------------------------
+
+   Mobile
+
+   --------------------------------------------------------- */
+
+
+
+@media (max-width: 600px) {
+
+
+
+    section[aria-labelledby="t-up"] > h2 {
+
+        padding: 24px 20px 16px;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"]:has(#previewSection.visible) > h2::after {
+
+        font-size: 30px;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"] > .up {
+
+        padding: 0 14px 20px;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"] > .up > div:first-child {
+
+        padding: 14px;
+
+    }
+
+
+
+    #previewImage {
+
+        height: 300px;
+
+    }
+
+
+
+    #previewSection .row {
+
+        flex-wrap: wrap;
+
+    }
+
+
+
+    #changeImageBtn,
+
+    #removeImageBtn,
+
+    #analyzeBtn {
+
+        width: 100%;
+
+        margin-left: 0;
+
+    }
+
+
+
+    section[aria-labelledby="t-up"] > .note {
+
+        padding: 0 20px 22px;
+
+    }
+
+}
+
+
+
+#previewSection .preview-image-wrap {
+
+    width: 100%;
+
+    background: #f4f7f5 !important;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+
+}
+
+
+
+#previewSection #previewImage {
+
+    width: 100% !important;
+
+    height: auto !important;
+
+    display: block !important;
+
+    object-fit: contain !important;
+
+}
+
+
+
+
+
+/* =====================================================
+
+   SIMOURA — PHOTO TIPS / NEW UI
+
+   ===================================================== */
+
+
+
+.tips-card {
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    padding: 0 !important;
+
+    background: transparent !important;
+
+}
+
+
+
+/* Header */
+
+.tips-header {
+
+    display: flex !important;
+
+    align-items: flex-start !important;
+
+    gap: 12px !important;
+
+    margin: 0 0 14px 0 !important;
+
+    padding: 0 !important;
+
+}
+
+
+
+.tips-icon {
+
+    width: 42px !important;
+
+    height: 42px !important;
+
+    min-width: 42px !important;
+
+
+
+    border-radius: 11px !important;
+
+
+
+    background: #f1f4f5 !important;
+
+
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+
+
+    font-size: 20px !important;
+
+}
+
+
+
+.tips-title {
+
+    font-size: 15px !important;
+
+    font-weight: 800 !important;
+
+    line-height: 1.2 !important;
+
+    color: #102f2c !important;
+
+}
+
+
+
+.tips-subtitle {
+
+    margin-top: 4px !important;
+
+    font-size: 11px !important;
+
+    line-height: 1.4 !important;
+
+    color: #71808a !important;
+
+}
+
+
+
+
+
+/* Individual tip */
+
+.tips-card .tip {
+
+    display: flex !important;
+
+    align-items: center !important;
+
+
+
+    gap: 12px !important;
+
+
+
+    min-height: 58px !important;
+
+
+
+    margin: 0 0 9px 0 !important;
+
+    padding: 10px 12px !important;
+
+
+
+    border: none !important;
+
+    border-radius: 12px !important;
+
+
+
+    background: #f5f7f8 !important;
+
+}
+
+
+
+.tips-card .tip:last-child {
+
+    margin-bottom: 0 !important;
+
+}
+
+
+
+
+
+/* Icon box */
+
+.tips-card .tip-icon {
+
+    width: 36px !important;
+
+    height: 36px !important;
+
+    min-width: 36px !important;
+
+
+
+    border-radius: 10px !important;
+
+
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+
+
+    background: #ffffff !important;
+
+
+
+    font-size: 17px !important;
+
+
+
+    box-shadow: none !important;
+
+}
+
+
+
+
+
+/* Tip content */
+
+.tips-card .tip > div:last-child {
+
+    min-width: 0 !important;
+
+    flex: 1 !important;
+
+}
+
+
+
+.tips-card .tip-title {
+
+    display: block !important;
+
+
+
+    margin: 0 0 3px 0 !important;
+
+
+
+    font-size: 12px !important;
+
+    line-height: 1.25 !important;
+
+    font-weight: 800 !important;
+
+
+
+    color: #102f2c !important;
+
+}
+
+
+
+.tips-card .tip-text {
+
+    display: block !important;
+
+
+
+    font-size: 10px !important;
+
+    line-height: 1.35 !important;
+
+
+
+    color: #71808a !important;
+
+}
+
+
+
+
+
+/* =====================================================
+   FINAL PHOTO TIPS FIX
+   The current demo HTML uses plain <li> elements for tips,
+   so the icons must be supplied by the list pseudo-element.
+   ===================================================== */
+
+section[aria-labelledby="t-up"] .tips {
+    list-style: none !important;
+    margin-top: 15px !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+section[aria-labelledby="t-up"] .tips li {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    min-height: 58px !important;
+    margin: 0 !important;
+    padding: 10px 14px 10px 58px !important;
+    border: 0 !important;
+    border-radius: 14px !important;
+    background: #f5f7f8 !important;
+    color: #102f2c !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+}
+
+/* Icon box */
+section[aria-labelledby="t-up"] .tips li::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #102f2c !important;
+    font-size: 19px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+}
+
+/* Individual icons */
+section[aria-labelledby="t-up"] .tips li:nth-child(1)::before {
+    content: "☀" !important;
+    background: #fff8df !important;
+    color: #d89b00 !important;
+}
+
+section[aria-labelledby="t-up"] .tips li:nth-child(2)::before {
+    content: "☺" !important;
+    background: #eef8df !important;
+    color: #111 !important;
+}
+
+section[aria-labelledby="t-up"] .tips li:nth-child(3)::before {
+    content: "⌾" !important;
+    background: #eef4ff !important;
+    color: #3b6fc4 !important;
+}
+
+section[aria-labelledby="t-up"] .tips li:nth-child(4)::before {
+    content: "✣" !important;
+    background: #f1edff !important;
+    color: #6551c9 !important;
+}
+
+section[aria-labelledby="t-up"] .tips li:nth-child(5)::before {
+    content: "⊘" !important;
+    background: #fff0f0 !important;
+    color: #e14d3f !important;
+}
+
+/* Patient photo — compact preview
+section[aria-labelledby="t-up"] #previewSection .preview-image-wrap {
+    width: 100% !important;
+    height: 360px !important;
+    min-height: 360px !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+}
+
+section[aria-labelledby="t-up"] #previewSection #previewImage {
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: none !important;
+    max-height: none !important;
+
+    display: block !important;
+
+    object-fit: cover !important;
+    object-position: center center !important;
+
+    border-radius: 8px !important;
+} */
+
+
+/* =====================================================
+   SIMOURA — FINAL PATIENT PHOTO PREVIEW
+   ===================================================== */
+
+section[aria-labelledby="t-up"] #previewSection .preview-box {
+    width: 100% !important;
+    height: 330px !important;
+    min-height: 330px !important;
+    max-height: 330px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    overflow: hidden !important;
+
+    display: block !important;
+
+    background: #edf3ef !important;
+    border-radius: 10px !important;
+}
+
+section[aria-labelledby="t-up"] #previewSection #previewImage {
+    display: block !important;
+
+    width: 100% !important;
+    height: 330px !important;
+
+    max-width: none !important;
+    max-height: none !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    object-fit: cover !important;
+    object-position: center center !important;
+
+    border-radius: 10px !important;
+}
