@@ -199,6 +199,49 @@
             "toothVisualizationPreview"
         );
 
+
+    // The HTML uses #toothVisualizationPreview as a container <div>,
+    // not as an <img>. Render generated images inside that container.
+    function clearToothVisualizationPreview() {
+        if (!toothVisualizationPreview) return;
+        toothVisualizationPreview.replaceChildren();
+        toothVisualizationPreview.style.display = "none";
+    }
+
+    function renderToothVisualizationPreview(imageUrl, toothNumber) {
+        if (!toothVisualizationPreview || !imageUrl) {
+            throw new Error("The server did not return a tooth visualization image.");
+        }
+
+        const image = document.createElement("img");
+        image.alt = `AI visualization of tooth ${toothNumber}`;
+        image.style.display = "block";
+        image.style.width = "100%";
+        image.style.maxWidth = "100%";
+        image.style.height = "auto";
+        image.style.maxHeight = "720px";
+        image.style.objectFit = "contain";
+        image.style.borderRadius = "12px";
+        image.style.border = "1px solid #d8e6e0";
+        image.style.background = "#f0f6f3";
+
+        image.onload = () => {
+            toothVisualizationPreview.style.display = "block";
+            toothVisualizationPreview.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest"
+            });
+        };
+        image.onerror = () => {
+            clearToothVisualizationPreview();
+            showError("The tooth visualization was generated, but the image could not be displayed.");
+        };
+
+        toothVisualizationPreview.replaceChildren(image);
+        toothVisualizationPreview.style.display = "block";
+        image.src = imageUrl;
+    }
+
     let selectedToothReport = null;
     let selectedToothTarget = null;
 
@@ -297,6 +340,97 @@
     );
 
 
+    /* =========================================================
+       LARGE IMAGE OPTIMIZATION
+       Trigger: uploaded file is larger than 1 MB.
+       Converts to JPEG and limits the longest edge to 2200 px,
+       preserving enough detail for tooth localization.
+    ========================================================= */
+
+    async function optimizeUploadedImage(file) {
+
+        const MAX_EDGE = 2200;
+        const JPEG_QUALITY = 0.86;
+
+        let bitmap;
+        let sourceWidth;
+        let sourceHeight;
+        let drawSource;
+
+        if (typeof createImageBitmap === "function") {
+            bitmap = await createImageBitmap(file);
+            sourceWidth = bitmap.width;
+            sourceHeight = bitmap.height;
+            drawSource = bitmap;
+        } else {
+            const imageUrl = URL.createObjectURL(file);
+            try {
+                const image = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error("The uploaded image could not be decoded."));
+                    img.src = imageUrl;
+                });
+                sourceWidth = image.naturalWidth;
+                sourceHeight = image.naturalHeight;
+                drawSource = image;
+            } finally {
+                URL.revokeObjectURL(imageUrl);
+            }
+        }
+
+        try {
+            if (!sourceWidth || !sourceHeight) {
+                throw new Error("The uploaded image has invalid dimensions.");
+            }
+
+            const scale = Math.min(1, MAX_EDGE / Math.max(sourceWidth, sourceHeight));
+            const width = Math.max(1, Math.round(sourceWidth * scale));
+            const height = Math.max(1, Math.round(sourceHeight * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+
+            const context = canvas.getContext("2d", { alpha: false });
+            if (!context) {
+                throw new Error("Could not initialize image compression.");
+            }
+
+            // A white background avoids black/transparent backgrounds when PNGs
+            // with transparency are converted to JPEG.
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, width, height);
+            context.drawImage(drawSource, 0, 0, width, height);
+
+            const blob = await new Promise((resolve, reject) => {
+                canvas.toBlob(
+                    result => result
+                        ? resolve(result)
+                        : reject(new Error("JPEG conversion failed.")),
+                    "image/jpeg",
+                    JPEG_QUALITY
+                );
+            });
+
+            // Keep the original if conversion did not make the file smaller.
+            if (blob.size >= file.size) {
+                return file;
+            }
+
+            const baseName = file.name.replace(/\.[^.]+$/, "") || "smile-photo";
+            return new File(
+                [blob],
+                `${baseName}-optimized.jpg`,
+                { type: "image/jpeg", lastModified: Date.now() }
+            );
+        } finally {
+            if (bitmap && typeof bitmap.close === "function") {
+                bitmap.close();
+            }
+        }
+    }
+
+
     async function handleFile(file) {
 
         clearError();
@@ -311,21 +445,30 @@
         }
 
 
-        if (
-            file.size >
-            10 * 1024 * 1024
-        ) {
+        // Optimize large uploads before they are used by any AI endpoint.
+        // Images at or below 1 MB remain untouched.
+        let fileForAnalysis = file;
+        let wasOptimized = false;
 
-            showError(
-                "Image is too large. Maximum size is 10 MB."
-            );
+        if (file.size > 1 * 1024 * 1024) {
+            try {
+                const optimizedFile = await optimizeUploadedImage(file);
 
-            return;
+                // Use the optimized version only if it actually reduces size.
+                if (optimizedFile && optimizedFile.size < file.size) {
+                    fileForAnalysis = optimizedFile;
+                    wasOptimized = true;
+                }
+            } catch (optimizationError) {
+                console.warn(
+                    "Image optimization failed; using the original upload:",
+                    optimizationError
+                );
+            }
         }
 
-
-        selectedFile = file;
-
+        selectedFile = fileForAnalysis;
+        clearPreciseFdiPhotoMarkers();
 
         if (originalImageUrl) {
 
@@ -338,7 +481,7 @@
 
         originalImageUrl =
             URL.createObjectURL(
-                file
+                fileForAnalysis
             );
 
 
@@ -351,12 +494,14 @@
 
         const dimensions =
             await getImageDimensions(
-                file
+                fileForAnalysis
             );
 
 
         fileName.textContent =
-            file.name;
+            wasOptimized
+                ? `${file.name} (optimized)`
+                : file.name;
 
 
         if (
@@ -365,12 +510,18 @@
         ) {
 
             fileMeta.textContent =
-                `${formatBytes(file.size)} · ${dimensions.width} × ${dimensions.height} px`;
+                `${formatBytes(fileForAnalysis.size)} · ${dimensions.width} × ${dimensions.height} px` +
+                (wasOptimized
+                    ? ` · optimized from ${formatBytes(file.size)}`
+                    : "");
 
         } else {
 
             fileMeta.textContent =
-                formatBytes(file.size);
+                `${formatBytes(fileForAnalysis.size)}` +
+                (wasOptimized
+                    ? ` · optimized from ${formatBytes(file.size)}`
+                    : "");
 
         }
 
@@ -760,8 +911,7 @@
         visualizeToothBtn.disabled = true;
         toothMaskResult.classList.remove("visible");
         clearToothReferenceArea();
-        toothVisualizationPreview.src = "";
-        toothVisualizationPreview.style.display = "none";
+        clearToothVisualizationPreview();
         toothAnalysisStatus.textContent = "";
         toothAnalysisReport.textContent = "";
         toothMaskStatus.textContent = "";
@@ -789,6 +939,400 @@
         updateSelectedToothMeta();
     }
 
+
+    /* =========================================================
+       CLICKABLE FDI PHOTO IN THE PRECISION SECTION
+       Render the uploaded photo here (not only in Patient Photo),
+       with Kimi's tooth centers as clickable FDI markers.
+    ========================================================= */
+
+    let preciseFdiPhotoPanel = null;
+    let preciseFdiImage = null;
+    let preciseFdiMarkerLayer = null;
+    let preciseWorkspace = null;
+    let preciseWorkspaceLeft = null;
+    let preciseWorkspaceRight = null;
+    let preciseWorkspacePlaceholder = null;
+
+    function ensurePrecisionWorkspace(photoPanel, startRow) {
+        if (preciseWorkspace && preciseWorkspace.isConnected) {
+            return;
+        }
+
+        const section = startPreciseToothBtn?.closest(".adv-panel");
+        const selectionRow = toothSelect?.closest(".row");
+        if (!section || !startRow || !selectionRow || !toothMaskResult) return;
+
+        const styleId = "simoura-precision-two-column-layout";
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement("style");
+            style.id = styleId;
+            style.textContent = `
+                #precisionToothWorkspace {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.92fr);
+                    align-items: start;
+                    gap: 24px;
+                    margin-top: 20px;
+                }
+                #precisionToothWorkspace .precision-workspace-column {
+                    min-width: 0;
+                    padding: 22px;
+                    border: 1px solid #d8e6e8;
+                    border-radius: 14px;
+                    background: #fff;
+                    box-sizing: border-box;
+                }
+                #precisionToothWorkspace #preciseFdiPhotoPanel {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: 0 !important;
+                    border-radius: 0 !important;
+                    background: transparent !important;
+                }
+                #precisionToothWorkspace #preciseFdiPhoto {
+                    width: 100%;
+                    height: auto;
+                    max-height: 560px;
+                    object-fit: contain;
+                }
+                #precisionToothWorkspace .precision-tooth-controls {
+                    display: grid !important;
+                    grid-template-columns: minmax(0, 1fr) auto;
+                    align-items: end;
+                    gap: 12px;
+                    margin-top: 18px;
+                    width: 100%;
+                }
+                #precisionToothWorkspace .precision-tooth-controls > div {
+                    display: block;
+                    flex: initial;
+                    width: 100%;
+                    min-width: 0;
+                }
+                #precisionToothWorkspace .precision-tooth-controls select {
+                    display: block;
+                    width: 100%;
+                    max-width: 100%;
+                    box-sizing: border-box;
+                }
+                #precisionToothWorkspace .precision-tooth-controls > button {
+                    position: static !important;
+                    float: none !important;
+                    align-self: end;
+                    margin: 0 !important;
+                    white-space: nowrap;
+                    max-width: 100%;
+                }
+                #precisionToothWorkspace .precision-workspace-right > h3 {
+                    margin: 0 0 14px;
+                }
+                #precisionToothWorkspace #toothMaskResult {
+                    margin: 0 !important;
+                    min-width: 0;
+                }
+                /* The right column already has its own persistent reference heading.
+                   Hide the duplicate heading retained inside the original result markup. */
+                #precisionToothWorkspace #toothMaskResult > .up > div:first-child > h3 {
+                    display: none !important;
+                }
+                #precisionToothWorkspace #toothMaskResult > .up {
+                    display: block;
+                }
+                #precisionToothWorkspace #toothMaskResult > .up > div + div {
+                    margin-top: 22px;
+                }
+                #precisionToothWorkspace #toothMaskImageArea,
+                #precisionToothWorkspace #toothMaskPreview {
+                    max-width: 100%;
+                }
+                #precisionToothWorkspace #toothMaskMeta {
+                    white-space: pre-line;
+                    overflow-wrap: anywhere;
+                    margin-bottom: 12px;
+                }
+                #precisionToothWorkspace #toothVisualizationPreview {
+                    overflow: hidden;
+                }
+                #precisionToothWorkspace .precision-workspace-placeholder {
+                    min-height: 300px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    padding: 28px;
+                    border: 1px dashed #cbded8;
+                    border-radius: 12px;
+                    background: #f6faf8;
+                    color: #52716b;
+                    box-sizing: border-box;
+                }
+                #precisionToothWorkspace .precision-workspace-placeholder strong {
+                    display: block;
+                    color: #164b43;
+                    margin-bottom: 8px;
+                }
+                @media (max-width: 900px) {
+                    #precisionToothWorkspace {
+                        grid-template-columns: minmax(0, 1fr);
+                        gap: 16px;
+                    }
+                    #precisionToothWorkspace .precision-workspace-column {
+                        padding: 16px;
+                    }
+                    #precisionToothWorkspace .precision-workspace-placeholder {
+                        min-height: 180px;
+                    }
+                }
+                @media (max-width: 560px) {
+                    #precisionToothWorkspace .precision-tooth-controls {
+                        grid-template-columns: minmax(0, 1fr);
+                    }
+                    #precisionToothWorkspace .precision-tooth-controls > button {
+                        width: 100%;
+                        white-space: normal;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const workspace = document.createElement("div");
+        workspace.id = "precisionToothWorkspace";
+        const left = document.createElement("div");
+        left.className = "precision-workspace-column precision-workspace-left";
+        const right = document.createElement("div");
+        right.className = "precision-workspace-column precision-workspace-right";
+        const referenceHeading = document.createElement("h3");
+        referenceHeading.className = "precision-reference-heading";
+        referenceHeading.textContent = "AI Tooth Localization Reference";
+        referenceHeading.style.cssText = "margin:0 0 14px;font-family:'Cormorant Garamond',Georgia,serif;font-size:27px;line-height:1.15;color:#123f38;";
+
+        const placeholder = document.createElement("div");
+        placeholder.className = "precision-workspace-placeholder";
+        placeholder.innerHTML = "<strong>Tooth reference will appear here</strong><span>Click a numbered FDI marker to analyze a tooth and view its verification image.</span>";
+
+        workspace.append(left, right);
+        right.append(referenceHeading, placeholder, toothMaskResult);
+        startRow.insertAdjacentElement("afterend", workspace);
+        left.append(photoPanel, selectionRow);
+
+        // Keep the selected-tooth report full-width below the photo/reference
+        // columns instead of squeezing the detailed assessment into the right column.
+        const analysisColumn = toothAnalysisReport?.parentElement;
+        const analysisPanel = document.createElement("section");
+        analysisPanel.id = "precisionToothAnalysisPanel";
+        analysisPanel.style.cssText = "display:none;width:100%;margin:24px 0 0;padding:24px;border:1px solid #d8e6e8;border-radius:14px;background:#fff;box-sizing:border-box;";
+        const analysisHeading = document.createElement("h3");
+        analysisHeading.textContent = "Selected Tooth Analysis";
+        analysisHeading.style.cssText = "margin:0 0 16px;";
+        analysisPanel.appendChild(analysisHeading);
+        if (toothAnalysisStatus) analysisPanel.appendChild(toothAnalysisStatus);
+        if (toothAnalysisReport) analysisPanel.appendChild(toothAnalysisReport);
+        if (visualizeToothBtn) {
+            visualizeToothBtn.style.marginTop = "18px";
+            analysisPanel.appendChild(visualizeToothBtn);
+        }
+        workspace.insertAdjacentElement("afterend", analysisPanel);
+
+        if (analysisColumn) {
+            analysisColumn.style.display = "none";
+        }
+        const layoutStyle = document.getElementById("simoura-precision-two-column-layout");
+        if (layoutStyle && !layoutStyle.textContent.includes("#precisionToothAnalysisPanel")) {
+            layoutStyle.textContent += `
+                #precisionToothAnalysisPanel #toothAnalysisReport {
+                    width: 100%;
+                    max-width: none;
+                    margin: 0;
+                }
+                #precisionToothAnalysisPanel .tooth-report-card {
+                    width: 100%;
+                    max-width: none;
+                    margin: 0;
+                }
+                #precisionToothAnalysisPanel .tooth-report-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+                @media (max-width: 700px) {
+                    #precisionToothAnalysisPanel { padding: 16px; }
+                    #precisionToothAnalysisPanel .tooth-report-grid {
+                        grid-template-columns: minmax(0, 1fr);
+                    }
+                }
+            `;
+        }
+
+        preciseWorkspace = workspace;
+        preciseWorkspaceLeft = left;
+        preciseWorkspaceRight = right;
+        preciseWorkspacePlaceholder = placeholder;
+        selectionRow.classList.add("precision-tooth-controls");
+        if (!window.__simouraToothReportObserver && (toothAnalysisReport || toothAnalysisStatus)) {
+            window.__simouraToothReportObserver = new MutationObserver(() => syncPrecisionWorkspace());
+            if (toothAnalysisReport) window.__simouraToothReportObserver.observe(toothAnalysisReport, { childList: true, subtree: true, characterData: true });
+            if (toothAnalysisStatus) window.__simouraToothReportObserver.observe(toothAnalysisStatus, { childList: true, subtree: true, characterData: true });
+        }
+        syncPrecisionWorkspace();
+    }
+
+    function syncPrecisionWorkspace() {
+        if (!preciseWorkspacePlaceholder || !toothMaskResult) return;
+        const resultVisible = toothMaskResult.classList.contains("visible");
+        preciseWorkspacePlaceholder.style.display = resultVisible ? "none" : "flex";
+        const analysisPanel = document.getElementById("precisionToothAnalysisPanel");
+        if (analysisPanel) {
+            // Do not show an empty full-width report card during the loading phase.
+            // Reveal it when actual report content exists, or when a non-loading
+            // status (for example an error) needs to be shown to the user.
+            const hasReport = Boolean(toothAnalysisReport?.textContent?.trim());
+            const statusText = String(toothAnalysisStatus?.textContent || "").trim();
+            const isLoadingStatus = /independently verifying|analyzing tooth|preparing the fdi reference/i.test(statusText);
+            const hasNonLoadingStatus = Boolean(statusText) && !isLoadingStatus;
+            analysisPanel.style.display = (hasReport || hasNonLoadingStatus) ? "block" : "none";
+        }
+    }
+
+    function ensurePreciseFdiPhotoPanel() {
+        if (preciseFdiPhotoPanel && preciseFdiPhotoPanel.isConnected) {
+            return preciseFdiPhotoPanel;
+        }
+
+        const section = startPreciseToothBtn?.closest(".adv-panel");
+        const startRow = startPreciseToothBtn?.closest(".precise-start-row");
+        if (!section || !startRow) return null;
+
+        const panel = document.createElement("div");
+        panel.id = "preciseFdiPhotoPanel";
+        panel.style.cssText = "display:none;margin:22px 0 26px;padding:16px;border:1px solid #d8e6e0;border-radius:14px;background:#fff;";
+
+        const heading = document.createElement("h3");
+        heading.textContent = "Select a tooth on the photo";
+        heading.style.cssText = "margin:0 0 6px;";
+
+        const note = document.createElement("p");
+        note.textContent = "Click a numbered FDI marker to start that tooth's precise analysis. You can still use the dropdown below.";
+        note.style.cssText = "margin:0 0 14px;";
+        note.className = "note";
+
+        const frame = document.createElement("div");
+        frame.style.cssText = "position:relative;width:100%;max-width:900px;margin:0 auto;line-height:0;overflow:hidden;border-radius:10px;background:#f0f6f3;";
+
+        const image = document.createElement("img");
+        image.id = "preciseFdiPhoto";
+        image.alt = "Uploaded smile photograph with clickable FDI tooth markers";
+        image.style.cssText = "display:block;width:100%;height:auto;max-height:none;object-fit:contain;";
+
+        const layer = document.createElement("div");
+        layer.id = "preciseFdiMarkerLayer";
+        layer.style.cssText = "position:absolute;inset:0;pointer-events:none;";
+
+        frame.append(image, layer);
+        panel.append(heading, note, frame);
+
+        preciseFdiPhotoPanel = panel;
+        preciseFdiImage = image;
+        preciseFdiMarkerLayer = layer;
+        image.addEventListener("load", () => {
+            if (preciseLocalizationReady && preciseToothTargets.length) {
+                renderPreciseFdiPhotoMarkers();
+            }
+        });
+        ensurePrecisionWorkspace(panel, startRow);
+        return panel;
+    }
+
+    function renderPreciseFdiPhotoMarkers() {
+        const panel = ensurePreciseFdiPhotoPanel();
+        if (!panel || !preciseFdiImage || !preciseFdiMarkerLayer) return;
+
+        if (!selectedFile || !originalImageUrl || !preciseLocalizationReady || !preciseToothTargets.length) {
+            panel.style.display = "none";
+            preciseFdiMarkerLayer.replaceChildren();
+            return;
+        }
+
+        if (preciseFdiImage.src !== originalImageUrl) {
+            preciseFdiImage.src = originalImageUrl;
+        }
+        panel.style.display = "block";
+        preciseFdiMarkerLayer.replaceChildren();
+
+        preciseToothTargets.forEach(target => {
+            const x = Number(target?.center?.x);
+            const y = Number(target?.center?.y);
+            const width = Number(preciseFdiImage.naturalWidth || previewImage.naturalWidth);
+            const height = Number(preciseFdiImage.naturalHeight || previewImage.naturalHeight);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !width || !height) return;
+
+            const marker = document.createElement("button");
+            marker.type = "button";
+            marker.className = "precise-fdi-marker";
+            marker.textContent = String(target.tooth);
+            marker.setAttribute("aria-label", `Analyze tooth ${target.tooth}${target.label ? `, ${target.label}` : ""}`);
+            marker.title = `Click to analyze tooth ${target.tooth}`;
+            marker.dataset.tooth = String(target.tooth);
+            marker.style.cssText = [
+                "position:absolute",
+                `left:${Math.max(0, Math.min(100, x / width * 100))}%`,
+                `top:${Math.max(0, Math.min(100, y / height * 100))}%`,
+                "transform:translate(-50%,-50%)",
+                "pointer-events:auto",
+                "display:flex",
+                "align-items:center",
+                "justify-content:center",
+                "min-width:38px",
+                "height:38px",
+                "padding:0 7px",
+                "border:2px solid #fff",
+                "border-radius:999px",
+                "background:#087f8c",
+                "color:#fff",
+                "font-size:13px",
+                "font-weight:700",
+                "line-height:1",
+                "box-shadow:0 2px 8px rgba(0,0,0,.25)",
+                "cursor:pointer",
+                "z-index:2"
+            ].join(";");
+
+            marker.addEventListener("mouseenter", () => {
+                marker.style.filter = "brightness(1.12)";
+                marker.style.transform = "translate(-50%,-50%) scale(1.08)";
+            });
+            marker.addEventListener("mouseleave", () => {
+                marker.style.filter = "none";
+                marker.style.transform = "translate(-50%,-50%)";
+            });
+            marker.addEventListener("click", async () => {
+                if (!preciseLocalizationReady || testToothMaskBtn.disabled) return;
+                toothSelect.value = String(target.tooth);
+                toothSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                updatePreciseFdiMarkerStyles();
+                await analyzeSelectedToothFromUI();
+            });
+            preciseFdiMarkerLayer.appendChild(marker);
+        });
+
+        updatePreciseFdiMarkerStyles();
+    }
+
+    function updatePreciseFdiMarkerStyles() {
+        if (!preciseFdiMarkerLayer) return;
+        const selected = String(toothSelect?.value || "");
+        preciseFdiMarkerLayer.querySelectorAll(".precise-fdi-marker").forEach(marker => {
+            const isSelected = marker.dataset.tooth === selected;
+            marker.style.background = isSelected ? "#f59e0b" : "#087f8c";
+            marker.style.color = isSelected ? "#173b36" : "#fff";
+            marker.style.zIndex = isSelected ? "3" : "2";
+        });
+    }
+
+    function clearPreciseFdiPhotoMarkers() {
+        if (preciseFdiPhotoPanel) preciseFdiPhotoPanel.style.display = "none";
+        if (preciseFdiMarkerLayer) preciseFdiMarkerLayer.replaceChildren();
+    }
 
     function getSelectedToothTarget() {
 
@@ -837,12 +1381,13 @@
         toothMaskMeta.textContent =
             "No precise tooth localization has been performed yet.";
         clearToothReferenceArea();
-        toothVisualizationPreview.src = "";
-        toothVisualizationPreview.style.display = "none";
+        clearToothVisualizationPreview();
         toothMaskStatus.textContent = "";
         toothAnalysisStatus.textContent = "";
         toothAnalysisReport.textContent = "";
         toothMaskResult.classList.remove("visible");
+        syncPrecisionWorkspace();
+        clearPreciseFdiPhotoMarkers();
 
         if (!keepButtonState) {
             startPreciseToothBtn.disabled =
@@ -945,10 +1490,11 @@
 
             populateToothTargets(data.teeth || []);
             preciseLocalizationReady = preciseToothTargets.length > 0;
+            renderPreciseFdiPhotoMarkers();
 
             if (preciseLocalizationReady) {
                 preciseLocalizationStatus.textContent =
-                    `${preciseToothTargets.length} Kimi-approved analyzable tooth${preciseToothTargets.length === 1 ? "" : "s"} found. Select one below for independent verification.`;
+                    `${preciseToothTargets.length} Kimi-approved analyzable tooth${preciseToothTargets.length === 1 ? "" : "s"} found. Click an FDI marker on the photo or select a tooth below.`;
                 statusText.textContent = "Precise tooth analysis ready";
             } else {
                 preciseLocalizationStatus.textContent =
@@ -983,12 +1529,13 @@
             visualizeToothBtn.disabled = true;
             toothMaskResult.classList.remove("visible");
             clearToothReferenceArea();
-            toothVisualizationPreview.src = "";
+            clearToothVisualizationPreview();
             toothVisualizationPreview.style.display = "none";
             toothAnalysisStatus.textContent = "";
             toothAnalysisReport.textContent = "";
             toothMaskStatus.textContent = "";
             updateSelectedToothMeta();
+            updatePreciseFdiMarkerStyles();
         }
     );
 
@@ -1381,6 +1928,7 @@
         testToothMaskBtn.disabled = true;
         visualizeToothBtn.disabled = true;
         toothMaskResult.classList.add("visible");
+        syncPrecisionWorkspace();
 
         // Reuse the existing AI Tooth Localization Reference area.
         // Never create a second shimmer/image panel for subsequent teeth.
@@ -1390,7 +1938,7 @@
             `Kimi is independently verifying and analyzing tooth ${target.tooth} from the original photograph...`;
         toothAnalysisReport.textContent = "";
         toothMaskStatus.textContent = "";
-        toothVisualizationPreview.src = "";
+        clearToothVisualizationPreview();
 
         try {
             const formData = new FormData();
@@ -1534,10 +2082,10 @@
                 );
             }
 
-            toothVisualizationPreview.onload = () => {
-                toothVisualizationPreview.style.display = "block";
-            };
-            toothVisualizationPreview.src = data.generatedImage;
+            renderToothVisualizationPreview(
+                data.generatedImage,
+                data.tooth || selectedToothTarget.tooth
+            );
             toothMaskStatus.textContent =
                 `Tooth ${data.tooth} visualization is ready.`;
             statusText.textContent =
@@ -2653,13 +3201,16 @@
         const fields = Object.entries(assessment);
 
         const assessmentMarkup = fields.length
-            ? fields.map(([key, value]) => `
+            ? fields.map(([key, value], index) => `
                 <div class="tooth-report-item">
-                    <div class="tooth-report-item-label">
-                        ${escapeHtml(formatToothFieldLabel(key))}
-                    </div>
-                    <div class="tooth-report-item-value">
-                        ${escapeHtml(formatToothValue(value))}
+                    <span class="tooth-report-item-number" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+                    <div class="tooth-report-item-content">
+                        <div class="tooth-report-item-label">
+                            ${escapeHtml(formatToothFieldLabel(key))}
+                        </div>
+                        <div class="tooth-report-item-value">
+                            ${escapeHtml(formatToothValue(value))}
+                        </div>
                     </div>
                 </div>
             `).join("")
@@ -2691,11 +3242,15 @@
                 </header>
 
                 <section class="tooth-report-section tooth-report-summary">
-                    <h4>Summary</h4>
-                    <p>${escapeHtml(summary)}</p>
+                    <div class="tooth-report-summary-icon" aria-hidden="true">▤</div>
+                    <div class="tooth-report-summary-content">
+                        <h4>Summary</h4>
+                        <p>${escapeHtml(summary)}</p>
+                    </div>
                 </section>
 
-                <section class="tooth-report-section">
+                <section class="tooth-report-section tooth-report-assessment-section">
+                    <div class="tooth-report-detail-kicker">Detailed Assessment</div>
                     <h4>Assessment</h4>
                     <div class="tooth-report-grid">
                         ${assessmentMarkup}
@@ -2703,8 +3258,13 @@
                 </section>
 
                 <section class="tooth-report-section tooth-report-visualization">
-                    <h4>Visualization Instructions</h4>
-                    <p>${escapeHtml(visualizationInstructions)}</p>
+                    <span class="tooth-report-visualization-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M8.2 14.5A7 7 0 1 1 15.8 14.5c-.9.7-1.3 1.7-1.5 2.5H9.7c-.2-.8-.6-1.8-1.5-2.5Z"/></svg>
+                    </span>
+                    <div class="tooth-report-visualization-content">
+                        <h4>Visualization Instructions</h4>
+                        <p>${escapeHtml(visualizationInstructions)}</p>
+                    </div>
                 </section>
 
             </article>
@@ -3012,136 +3572,212 @@
         style.textContent = `
             #toothAnalysisReport {
                 width: 100%;
-                margin: 26px auto 0;
+                margin: 0;
                 box-sizing: border-box;
             }
-
             .tooth-report-card {
-                width: min(100%, 1050px);
-                margin: 0 auto;
-                background: #ffffff;
-                border: 1px solid #dce7e2;
-                border-radius: 18px;
+                width: 100%;
+                margin: 0;
+                background: #fff;
+                border: 1px solid #dcebe5;
+                border-radius: 14px;
                 overflow: hidden;
                 box-sizing: border-box;
             }
-
             .tooth-report-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 20px;
-                padding: 25px 30px;
-                background: #f8faf8;
-                border-bottom: 1px solid #e2ebe7;
+                gap: 18px;
+                padding: 16px 20px;
+                background: #f7faf8;
+                border: 1px solid #e2eee8;
+                border-radius: 10px;
+                margin: 12px 12px 10px;
             }
-
             .tooth-report-kicker {
-                margin-bottom: 5px;
+                margin-bottom: 4px;
                 color: #b28d45;
                 font-size: 10px;
                 font-weight: 700;
-                letter-spacing: .14em;
+                letter-spacing: .12em;
                 text-transform: uppercase;
             }
-
             .tooth-report-title {
                 margin: 0;
                 color: #123f38;
                 font-family: "Cormorant Garamond", Georgia, serif;
-                font-size: 29px;
-                line-height: 1.1;
+                font-size: 28px;
+                line-height: 1.12;
                 font-weight: 600;
             }
-
             .tooth-report-confidence {
                 display: flex;
                 align-items: center;
-                gap: 9px;
+                gap: 8px;
                 padding: 8px 12px;
-                border: 1px solid #c8ded7;
+                border: 1px solid #d0e8df;
                 border-radius: 999px;
-                background: #edf7f3;
+                background: #eaf7f2;
                 color: #0b5b4f;
                 font-size: 12px;
                 white-space: nowrap;
             }
-
-            .tooth-report-confidence span {
-                color: #60736d;
-            }
-
-            .tooth-report-confidence strong {
-                color: #0b5b4f;
-            }
-
-            .tooth-report-section {
-                padding: 24px 30px;
-            }
-
-            .tooth-report-section + .tooth-report-section {
-                padding-top: 0;
-            }
-
+            .tooth-report-confidence span { color: #60736d; }
+            .tooth-report-confidence strong { color: #0b5b4f; }
+            .tooth-report-section { padding: 16px 26px; }
             .tooth-report-section h4 {
-                margin: 0 0 12px;
+                margin: 0 0 10px;
+                color: #123f38;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+            }
+            .tooth-report-summary {
+                display: flex;
+                align-items: flex-start;
+                gap: 14px;
+                margin: 0 12px 12px;
+                padding: 13px 14px;
+                background: #f7faf8;
+                border: 1px solid #e2eee8;
+                border-radius: 10px;
+            }
+            .tooth-report-summary-icon {
+                flex: 0 0 40px;
+                width: 40px;
+                height: 40px;
+                display: grid;
+                place-items: center;
+                border-radius: 9px;
+                background: #e2f3ed;
+                color: #0b5b4f;
+                font-size: 22px;
+            }
+            .tooth-report-summary-content { min-width: 0; }
+            .tooth-report-summary-content h4 { margin: 1px 0 6px; }
+            .tooth-report-summary p,
+            .tooth-report-visualization p {
+                max-width: none;
+                margin: 0;
+                color: #526d68;
+                font-size: 12px;
+                line-height: 1.65;
+            }
+            .tooth-report-detail-kicker {
+                margin: 0 0 14px;
                 color: #123f38;
                 font-size: 12px;
                 font-weight: 700;
-                letter-spacing: .1em;
+                letter-spacing: .08em;
                 text-transform: uppercase;
+                display: none
             }
-
-            .tooth-report-summary p,
-            .tooth-report-visualization p {
-                max-width: 900px;
-                margin: 0;
-                color: #31514b;
-                font-size: 14px;
-                line-height: 1.7;
-            }
-
+            .tooth-report-assessment-section > h4 { margin-bottom: 12px; }
             .tooth-report-grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 10px 14px;
+                gap: 10px;
             }
-
             .tooth-report-item {
+                display: flex !important;
+                align-items: flex-start;
+                gap: 14px;
                 min-width: 0;
-                padding: 15px 17px;
-                background: #f8faf9;
-                border: 1px solid #e3ece8;
-                border-radius: 12px;
+                padding: 13px 14px !important;
+                background: #fff;
+                border: 1px solid #dfebe6;
+                border-radius: 10px;
+                box-sizing: border-box;
+                overflow-wrap: anywhere;
             }
-
+            #precisionToothAnalysisPanel .tooth-report-item::before,
+            #precisionToothAnalysisPanel .tooth-report-item::after,
+            #precisionToothAnalysisPanel .tooth-report-item-label::before,
+            #precisionToothAnalysisPanel .tooth-report-item-label::after {
+                content: none !important;
+                display: none !important;
+            }
+            .tooth-report-item-number {
+                flex: 0 0 38px;
+                width: 38px;
+                height: 38px;
+                display: grid;
+                place-items: center;
+                border-radius: 50%;
+                background: #e2f4ee;
+                color: #0b5b4f;
+                font-size: 13px;
+                font-weight: 700;
+            }
+            .tooth-report-item-content {
+                min-width: 0;
+                flex: 1;
+                position: static !important;
+                display: block !important;
+            }
             .tooth-report-item-label {
-                margin-bottom: 6px;
-                color: #60736d;
+                display: block !important;
+                position: static !important;
+                width: auto !important;
+                max-width: 100%;
+                margin: 3px 0 6px !important;
+                padding: 0 !important;
+                color: #123f38;
                 font-size: 10px;
                 font-weight: 700;
-                letter-spacing: .06em;
+                letter-spacing: .05em;
                 text-transform: uppercase;
+                transform: none !important;
+                overflow-wrap: anywhere;
             }
-
             .tooth-report-item-value {
-                color: #173f3a;
-                font-size: 13px;
-                line-height: 1.6;
+                display: block !important;
+                position: static !important;
+                width: auto !important;
+                max-width: 100%;
+                margin: 0 !important;
+                padding: 0 !important;
+                color: #526d68;
+                font-size: 12px;
+                line-height: 1.55;
+                transform: none !important;
+                overflow-wrap: anywhere;
+                word-break: normal;
             }
-
             .tooth-report-visualization {
-                margin: 0 30px 28px;
-                padding: 19px 21px;
-                background: #edf7f3;
-                border-left: 3px solid #0b5b4f;
-                border-radius: 10px;
+                display: flex;
+                align-items: flex-start;
+                gap: 13px;
+                margin: 4px 12px 16px;
+                padding: 15px 16px;
+                background: #edf8f4;
+                border: 1px solid #cde9df;
+                border-left: 3px solid #00a982;
+                border-radius: 9px;
+                box-sizing: border-box;
             }
-
+            .tooth-report-visualization-icon {
+                flex: 0 0 20px;
+                display: inline-flex;
+                color: #00a982;
+                line-height: 1;
+                margin-top: 1px;
+            }
+            .tooth-report-visualization-icon svg { display: block; }
+            .tooth-report-visualization-content { min-width: 0; }
             .tooth-report-visualization h4 {
+                position: static !important;
+                display: block !important;
+                margin: 1px 0 7px !important;
+                padding: 0 !important;
                 color: #0b5b4f;
+                line-height: 1.4 !important;
+                transform: none !important;
             }
-
+            .tooth-report-visualization h4::before,
+            .tooth-report-visualization h4::after { content: none !important; display: none !important; }
             .tooth-report-empty {
                 grid-column: 1 / -1;
                 padding: 18px;
@@ -3149,27 +3785,12 @@
                 background: #f8faf9;
                 border-radius: 12px;
             }
-
             @media (max-width: 760px) {
-                .tooth-report-header {
-                    align-items: flex-start;
-                    flex-direction: column;
-                    padding: 22px;
-                }
-
-                .tooth-report-section {
-                    padding-left: 22px;
-                    padding-right: 22px;
-                }
-
-                .tooth-report-grid {
-                    grid-template-columns: 1fr;
-                }
-
-                .tooth-report-visualization {
-                    margin-left: 22px;
-                    margin-right: 22px;
-                }
+                .tooth-report-header { align-items: flex-start; }
+                .tooth-report-title { font-size: 25px; }
+                .tooth-report-section { padding-left: 16px; padding-right: 16px; }
+                .tooth-report-grid { grid-template-columns: 1fr; }
+                .tooth-report-visualization { margin-left: 12px; margin-right: 12px; }
             }
         `;
 

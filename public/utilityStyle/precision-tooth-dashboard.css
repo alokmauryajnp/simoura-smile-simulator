@@ -1021,12 +1021,12 @@
     color: #60736d !important;
     font-size: 11px !important;
     line-height: 1.5 !important;
-    /* display: none; */
+    display: none;
 }
 
 #visualizeToothBtn {
     margin-top: 18px !important;
-    display: none !important;
+    /* display: none !important; */
 }
 
 #toothMaskMeta{
@@ -1314,4 +1314,8 @@
     .precise-start-row #startPreciseToothBtn {
         width: 100%;
     }
+}
+
+.tooth-report-detail-kicker{
+    display: none !important;
 }
