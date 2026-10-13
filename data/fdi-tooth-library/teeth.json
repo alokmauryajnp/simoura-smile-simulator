@@ -1,0 +1,1189 @@
+{
+  "database_name": "Simoura FDI Tooth Reference Library",
+  "schema_version": "1.0.0",
+  "dentition": "permanent",
+  "fdi_system": "ISO 3950",
+  "notice": "This is a metadata scaffold. It contains no clinical reference images or validated measurements.",
+  "teeth": [
+    {
+      "fdi": "11",
+      "universal_name": "Upper-Right Central incisor",
+      "tooth_type": "central_incisor",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 1,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/11/labial.png",
+        "incisal_occlusal": "assets/11/incisal_occlusal.png",
+        "mesial": "assets/11/mesial.png",
+        "distal": "assets/11/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": "upper_right_central_incisor_reference_chart",
+        "review_status": "variants_added_dimensions_unverified"
+      },
+      "asset_version": 1,
+      "asset_status": "partial_metadata_images_pending",
+      "shape_variants": [
+        {
+          "id": "natural_square",
+          "label": "Natural Square",
+          "image": "assets/11/variants/square-front.png",
+          "view": "front",
+          "crown_height_mm": 11.0,
+          "crown_width_mm": 8.8,
+          "width_height_ratio": 0.8,
+          "source_id": "upper_right_central_incisor_reference_chart",
+          "source_note": "Dimensions transcribed from user-provided chart; not independently clinically verified.",
+          "review_status": "chart_value_unverified"
+        },
+        {
+          "id": "natural_oval",
+          "label": "Natural Oval",
+          "image": "assets/11/variants/oval-front.png",
+          "view": "front",
+          "crown_height_mm": 10.5,
+          "crown_width_mm": 8.5,
+          "width_height_ratio": 0.8095,
+          "source_id": "upper_right_central_incisor_reference_chart",
+          "source_note": "Dimensions transcribed from user-provided chart; not independently clinically verified.",
+          "review_status": "chart_value_unverified"
+        },
+        {
+          "id": "tapered",
+          "label": "Tapered",
+          "image": "assets/11/variants/tapered-front.png",
+          "view": "front",
+          "crown_height_mm": 11.2,
+          "crown_width_mm": 8.0,
+          "width_height_ratio": 0.7143,
+          "source_id": "upper_right_central_incisor_reference_chart",
+          "source_note": "Dimensions transcribed from user-provided chart; not independently clinically verified.",
+          "review_status": "chart_value_unverified"
+        },
+        {
+          "id": "rounded_youthful",
+          "label": "Rounded Youthful",
+          "image": "assets/11/variants/rounded-youthful-front.png",
+          "view": "front",
+          "crown_height_mm": 10.0,
+          "crown_width_mm": 8.3,
+          "width_height_ratio": 0.83,
+          "source_id": "upper_right_central_incisor_reference_chart",
+          "source_note": "Dimensions transcribed from user-provided chart; not independently clinically verified.",
+          "review_status": "chart_value_unverified"
+        }
+      ]
+    },
+    {
+      "fdi": "12",
+      "universal_name": "Upper-Right Lateral incisor",
+      "tooth_type": "lateral_incisor",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 2,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/12/labial.png",
+        "incisal_occlusal": "assets/12/incisal_occlusal.png",
+        "mesial": "assets/12/mesial.png",
+        "distal": "assets/12/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "13",
+      "universal_name": "Upper-Right Canine",
+      "tooth_type": "canine",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 3,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/13/labial.png",
+        "incisal_occlusal": "assets/13/incisal_occlusal.png",
+        "mesial": "assets/13/mesial.png",
+        "distal": "assets/13/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "14",
+      "universal_name": "Upper-Right First premolar",
+      "tooth_type": "first_premolar",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 4,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/14/labial.png",
+        "incisal_occlusal": "assets/14/incisal_occlusal.png",
+        "mesial": "assets/14/mesial.png",
+        "distal": "assets/14/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "15",
+      "universal_name": "Upper-Right Second premolar",
+      "tooth_type": "second_premolar",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 5,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/15/labial.png",
+        "incisal_occlusal": "assets/15/incisal_occlusal.png",
+        "mesial": "assets/15/mesial.png",
+        "distal": "assets/15/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "16",
+      "universal_name": "Upper-Right First molar",
+      "tooth_type": "first_molar",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 6,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/16/labial.png",
+        "incisal_occlusal": "assets/16/incisal_occlusal.png",
+        "mesial": "assets/16/mesial.png",
+        "distal": "assets/16/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "17",
+      "universal_name": "Upper-Right Second molar",
+      "tooth_type": "second_molar",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 7,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/17/labial.png",
+        "incisal_occlusal": "assets/17/incisal_occlusal.png",
+        "mesial": "assets/17/mesial.png",
+        "distal": "assets/17/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "18",
+      "universal_name": "Upper-Right Third molar",
+      "tooth_type": "third_molar",
+      "arch": "upper",
+      "side": "right",
+      "quadrant": 1,
+      "position_from_midline": 8,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/18/labial.png",
+        "incisal_occlusal": "assets/18/incisal_occlusal.png",
+        "mesial": "assets/18/mesial.png",
+        "distal": "assets/18/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "21",
+      "universal_name": "Upper-Left Central incisor",
+      "tooth_type": "central_incisor",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 1,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/21/labial.png",
+        "incisal_occlusal": "assets/21/incisal_occlusal.png",
+        "mesial": "assets/21/mesial.png",
+        "distal": "assets/21/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "shape_variants_added_clinical_dimensions_not_provided"
+      },
+      "asset_version": 1,
+      "asset_status": "shape_variant_images_added_standard_views_pending",
+      "shape_variants": [
+        {
+          "id": "natural_oval",
+          "label": "Natural Oval",
+          "image": "assets/21/variants/oval-front.png",
+          "view": "front",
+          "image_width_px": 1025,
+          "image_height_px": 1535,
+          "source_note": "Image supplied by the user. Pixel dimensions are file metadata, not clinical measurements.",
+          "review_status": "image_added_clinical_dimensions_not_provided"
+        },
+        {
+          "id": "rounded_youthful",
+          "label": "Rounded Youthful",
+          "image": "assets/21/variants/rounded-youthful-front.png",
+          "view": "front",
+          "image_width_px": 1040,
+          "image_height_px": 1512,
+          "source_note": "Image supplied by the user. Pixel dimensions are file metadata, not clinical measurements.",
+          "review_status": "image_added_clinical_dimensions_not_provided"
+        },
+        {
+          "id": "natural_square",
+          "label": "Natural Square",
+          "image": "assets/21/variants/square-front.png",
+          "view": "front",
+          "image_width_px": 984,
+          "image_height_px": 1599,
+          "source_note": "Image supplied by the user. Pixel dimensions are file metadata, not clinical measurements.",
+          "review_status": "image_added_clinical_dimensions_not_provided"
+        },
+        {
+          "id": "tapered",
+          "label": "Tapered",
+          "image": "assets/21/variants/tapered-front.png",
+          "view": "front",
+          "image_width_px": 1007,
+          "image_height_px": 1562,
+          "source_note": "Image supplied by the user. Pixel dimensions are file metadata, not clinical measurements.",
+          "review_status": "image_added_clinical_dimensions_not_provided"
+        }
+      ]
+    },
+    {
+      "fdi": "22",
+      "universal_name": "Upper-Left Lateral incisor",
+      "tooth_type": "lateral_incisor",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 2,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/22/labial.png",
+        "incisal_occlusal": "assets/22/incisal_occlusal.png",
+        "mesial": "assets/22/mesial.png",
+        "distal": "assets/22/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "23",
+      "universal_name": "Upper-Left Canine",
+      "tooth_type": "canine",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 3,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/23/labial.png",
+        "incisal_occlusal": "assets/23/incisal_occlusal.png",
+        "mesial": "assets/23/mesial.png",
+        "distal": "assets/23/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "24",
+      "universal_name": "Upper-Left First premolar",
+      "tooth_type": "first_premolar",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 4,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/24/labial.png",
+        "incisal_occlusal": "assets/24/incisal_occlusal.png",
+        "mesial": "assets/24/mesial.png",
+        "distal": "assets/24/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "25",
+      "universal_name": "Upper-Left Second premolar",
+      "tooth_type": "second_premolar",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 5,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/25/labial.png",
+        "incisal_occlusal": "assets/25/incisal_occlusal.png",
+        "mesial": "assets/25/mesial.png",
+        "distal": "assets/25/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "26",
+      "universal_name": "Upper-Left First molar",
+      "tooth_type": "first_molar",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 6,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/26/labial.png",
+        "incisal_occlusal": "assets/26/incisal_occlusal.png",
+        "mesial": "assets/26/mesial.png",
+        "distal": "assets/26/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "27",
+      "universal_name": "Upper-Left Second molar",
+      "tooth_type": "second_molar",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 7,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/27/labial.png",
+        "incisal_occlusal": "assets/27/incisal_occlusal.png",
+        "mesial": "assets/27/mesial.png",
+        "distal": "assets/27/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "28",
+      "universal_name": "Upper-Left Third molar",
+      "tooth_type": "third_molar",
+      "arch": "upper",
+      "side": "left",
+      "quadrant": 2,
+      "position_from_midline": 8,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/28/labial.png",
+        "incisal_occlusal": "assets/28/incisal_occlusal.png",
+        "mesial": "assets/28/mesial.png",
+        "distal": "assets/28/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "31",
+      "universal_name": "Lower-Left Central incisor",
+      "tooth_type": "central_incisor",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 1,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/31/labial.png",
+        "incisal_occlusal": "assets/31/incisal_occlusal.png",
+        "mesial": "assets/31/mesial.png",
+        "distal": "assets/31/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "32",
+      "universal_name": "Lower-Left Lateral incisor",
+      "tooth_type": "lateral_incisor",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 2,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/32/labial.png",
+        "incisal_occlusal": "assets/32/incisal_occlusal.png",
+        "mesial": "assets/32/mesial.png",
+        "distal": "assets/32/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "33",
+      "universal_name": "Lower-Left Canine",
+      "tooth_type": "canine",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 3,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/33/labial.png",
+        "incisal_occlusal": "assets/33/incisal_occlusal.png",
+        "mesial": "assets/33/mesial.png",
+        "distal": "assets/33/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "34",
+      "universal_name": "Lower-Left First premolar",
+      "tooth_type": "first_premolar",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 4,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/34/labial.png",
+        "incisal_occlusal": "assets/34/incisal_occlusal.png",
+        "mesial": "assets/34/mesial.png",
+        "distal": "assets/34/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "35",
+      "universal_name": "Lower-Left Second premolar",
+      "tooth_type": "second_premolar",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 5,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/35/labial.png",
+        "incisal_occlusal": "assets/35/incisal_occlusal.png",
+        "mesial": "assets/35/mesial.png",
+        "distal": "assets/35/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "36",
+      "universal_name": "Lower-Left First molar",
+      "tooth_type": "first_molar",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 6,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/36/labial.png",
+        "incisal_occlusal": "assets/36/incisal_occlusal.png",
+        "mesial": "assets/36/mesial.png",
+        "distal": "assets/36/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "37",
+      "universal_name": "Lower-Left Second molar",
+      "tooth_type": "second_molar",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 7,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/37/labial.png",
+        "incisal_occlusal": "assets/37/incisal_occlusal.png",
+        "mesial": "assets/37/mesial.png",
+        "distal": "assets/37/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "38",
+      "universal_name": "Lower-Left Third molar",
+      "tooth_type": "third_molar",
+      "arch": "lower",
+      "side": "left",
+      "quadrant": 3,
+      "position_from_midline": 8,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/38/labial.png",
+        "incisal_occlusal": "assets/38/incisal_occlusal.png",
+        "mesial": "assets/38/mesial.png",
+        "distal": "assets/38/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "41",
+      "universal_name": "Lower-Right Central incisor",
+      "tooth_type": "central_incisor",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 1,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/41/labial.png",
+        "incisal_occlusal": "assets/41/incisal_occlusal.png",
+        "mesial": "assets/41/mesial.png",
+        "distal": "assets/41/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "42",
+      "universal_name": "Lower-Right Lateral incisor",
+      "tooth_type": "lateral_incisor",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 2,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/42/labial.png",
+        "incisal_occlusal": "assets/42/incisal_occlusal.png",
+        "mesial": "assets/42/mesial.png",
+        "distal": "assets/42/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "43",
+      "universal_name": "Lower-Right Canine",
+      "tooth_type": "canine",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 3,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/43/labial.png",
+        "incisal_occlusal": "assets/43/incisal_occlusal.png",
+        "mesial": "assets/43/mesial.png",
+        "distal": "assets/43/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "44",
+      "universal_name": "Lower-Right First premolar",
+      "tooth_type": "first_premolar",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 4,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/44/labial.png",
+        "incisal_occlusal": "assets/44/incisal_occlusal.png",
+        "mesial": "assets/44/mesial.png",
+        "distal": "assets/44/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "45",
+      "universal_name": "Lower-Right Second premolar",
+      "tooth_type": "second_premolar",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 5,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/45/labial.png",
+        "incisal_occlusal": "assets/45/incisal_occlusal.png",
+        "mesial": "assets/45/mesial.png",
+        "distal": "assets/45/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "46",
+      "universal_name": "Lower-Right First molar",
+      "tooth_type": "first_molar",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 6,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/46/labial.png",
+        "incisal_occlusal": "assets/46/incisal_occlusal.png",
+        "mesial": "assets/46/mesial.png",
+        "distal": "assets/46/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "47",
+      "universal_name": "Lower-Right Second molar",
+      "tooth_type": "second_molar",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 7,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/47/labial.png",
+        "incisal_occlusal": "assets/47/incisal_occlusal.png",
+        "mesial": "assets/47/mesial.png",
+        "distal": "assets/47/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    },
+    {
+      "fdi": "48",
+      "universal_name": "Lower-Right Third molar",
+      "tooth_type": "third_molar",
+      "arch": "lower",
+      "side": "right",
+      "quadrant": 4,
+      "position_from_midline": 8,
+      "dentition": "permanent",
+      "reference_images": {
+        "labial": "assets/48/labial.png",
+        "incisal_occlusal": "assets/48/incisal_occlusal.png",
+        "mesial": "assets/48/mesial.png",
+        "distal": "assets/48/distal.png"
+      },
+      "landmarks": {
+        "coordinate_system": "normalized_0_to_1",
+        "crown_boundary": null,
+        "mesial_cervical": null,
+        "distal_cervical": null,
+        "mesial_incisal_or_occlusal": null,
+        "distal_incisal_or_occlusal": null,
+        "long_axis": null
+      },
+      "shape_metadata": {
+        "crown_shape": null,
+        "width_height_ratio": null,
+        "incisal_or_occlusal_profile": null,
+        "source_id": null,
+        "review_status": "placeholder"
+      },
+      "asset_version": 1,
+      "asset_status": "missing"
+    }
+  ]
+}

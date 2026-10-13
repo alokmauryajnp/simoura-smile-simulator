@@ -3,6 +3,8 @@ require("dotenv").config();
 
 
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
 const multer = require("multer");
 
@@ -10,6 +12,13 @@ const axios = require("axios");
 
 const FormData = require("form-data");
 const sharp = require("sharp");
+
+// FDI reference library (metadata + optional local reference images).
+// Expected project path: data/fdi-tooth-library/ beside server.js.
+const {
+    getToothReference,
+    buildReferenceGuidance
+} = require("./data/fdi-tooth-library/reference-library");
 
 
 
@@ -28,18 +37,55 @@ const PORT = process.env.PORT || 10000;
 
 
 const upload = multer({
-
-    storage: multer.memoryStorage(),
-
-    limits: {
-
-        fileSize: 10 * 1024 * 1024
-
-    }
-
+    storage: multer.memoryStorage(),
+    limits: {
+        // Uploaded source image limit.
+        fileSize: 10 * 1024 * 1024,
+        // Refinement sends currentImage as a multipart TEXT field. Base64 adds
+        // roughly 33% overhead, so Multer's 1 MB default would truncate/reject it.
+        fieldSize: 22 * 1024 * 1024,
+        fieldNameSize: 100,
+        fields: 12,
+        parts: 16
+    }
 });
 
+// Validate image uploads once at the API boundary so every route receives a
+// decodable raster image rather than trusting the browser-supplied MIME type.
+async function validateUploadedImage(req, res, next) {
+    if (!req.file) return next();
 
+    const supportedMimeTypes = new Set([
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp"
+    ]);
+
+    if (!supportedMimeTypes.has(String(req.file.mimetype || "").toLowerCase())) {
+        return res.status(415).json({
+            success: false,
+            error: "Unsupported image type. Please upload a JPG, PNG, or WEBP image."
+        });
+    }
+
+    try {
+        const metadata = await sharp(req.file.buffer).metadata();
+        if (!metadata.width || !metadata.height ||
+            !["jpeg", "png", "webp"].includes(metadata.format)) {
+            return res.status(400).json({
+                success: false,
+                error: "The uploaded file is not a valid JPG, PNG, or WEBP image."
+            });
+        }
+        return next();
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            error: "The uploaded file could not be decoded as an image."
+        });
+    }
+}
 
 app.use(express.json({ limit: "5mb" }));
 
@@ -552,6 +598,24 @@ IMAGE DIMENSIONS:
 - width: ${imageWidth} pixels
 - height: ${imageHeight} pixels
 
+CLINICAL-INFORMED VISUAL DESIGN FRAMEWORK (from the supplied Smile Enhancement AI guidance):
+
+Use the following as visual-design principles, not as a diagnostic or treatment protocol:
+- Prioritize a natural, face-appropriate smile over uniformly large, ultra-white, perfectly identical teeth.
+- Preserve individual character and natural asymmetry where it looks plausible; do not force mathematical symmetry.
+- Treat population proportion ranges as references only, never mandatory targets. This prototype derives approximate pixel width, height, and width-to-height ratio from Kimi's predicted tooth bounding boxes after analysis. These are bounding-box proxies, NOT actual crown-boundary measurements, and must never be described as clinically exact or converted to millimetres. Do not claim the ratio is a validated tooth proportion measurement. If no calibrated scan/measurement is supplied, describe anatomical proportions qualitatively and state uncertainty.
+- Consider visible tooth-size hierarchy, relative apparent width/height, crown outline, corner shape, incisal-edge contour, contact points, embrasures, visible spacing/overlap, apparent alignment, smile arc, lip curvature, gum display, shade harmony, translucency and enamel texture.
+- Perform a complete visible-tooth morphology pass: assess each clearly identifiable crown for square/oval/rectangular/triangular or tapered outline; mesial/distal line-angle shape; cervical contour and visible emergence; facial-surface convexity/lobes; incisal edge or canine cusp; incisal embrasures; visible contact/gap relationships; and surface texture/translucency.
+- Explicitly assess conical/tapered crowns. Distinguish visible taper from apparent taper caused by rotation, perspective, shadows, gum position, or neighboring-tooth overlap. If the user's request is a general cosmetic smile enhancement and a visibly disproportionate taper is supported by the image, propose a proportionate, natural-looking visual contour correction; do not make the tooth bulky or erase all embrasures.
+- Assess lower anterior teeth independently when visible: lower incisor edge levels, wear-like appearance, rotations/overlap, outline, spacing, and lower canine contours. Do not copy upper-tooth proportions onto lower teeth or flatten the lower incisal edge into a ruler-straight line.
+- Distinguish structural/shape changes from shade-only changes. For a general smile-enhancement request, enable relevant visible morphology, contour, alignment, and lower-tooth corrections when a defensible cosmetic discrepancy is visible; leave unaffected features unchanged. Do not automatically enable gum surgery, veneers, or any clinical treatment.
+- Separate visible observations from uncertainty. Perspective, head tilt, lens distortion, overlap, partial visibility and lighting may distort apparent proportions.
+- A photograph cannot reliably establish root position, enamel thickness, bite contacts/function, jaw movement, periodontal health, tooth vitality, hidden decay or true 3D tooth dimensions. Do not infer these.
+- Do not diagnose disease or recommend irreversible treatment. Do not recommend enamel removal, gum surgery, extraction, crowns, veneers or orthodontic treatment as clinical advice from the photo alone. The system creates aesthetic simulations only.
+- If multiple design directions are reasonable, describe conservative/natural and moderately enhanced visual concepts without claiming one is medically superior.
+- Preserve plausible anatomy, natural tooth-size hierarchy, gingival margins, contact points, embrasures, incisal edges, realistic translucency and texture. Avoid oversized central incisors, excessive opaque whiteness, repeated identical shapes, or a pasted-on smile.
+- Keep the analysis and visual editing instructions separate from clinical decisions. A licensed dentist must assess feasibility before real treatment.
+
 Determine:
 
 1. Are the teeth sufficiently visible for a smile visualization?
@@ -563,7 +627,10 @@ Determine:
 7. What is the visible smile arc?
 8. How much gum is visible?
 9. What visible tooth proportion characteristics are present?
-10. What cosmetic changes could realistically be visualized?
+10. For each visible/analyzable tooth, what are its outline, taper/conical appearance, line angles, cervical contour, incisal edge/cusp, embrasures, surface anatomy, texture, and relation to adjacent teeth?
+11. Are any lower teeth visible, and do their incisal edges, contours, rotations, spacing, or shade need visual correction?
+12. Which visible morphology/contour/alignment corrections should be included in a general cosmetic visualization, while preserving unaffected features?
+13. What cosmetic changes could realistically be visualized?
 
 Do NOT diagnose disease.
 Do NOT invent hidden dental problems.
@@ -624,11 +691,27 @@ Use exactly this structure:
     "tooth_shade": "description",
     "smile_arc": "description",
     "gum_display": "description",
-    "tooth_proportions": "description"
+    "tooth_proportions": "description",
+    "tooth_morphology": "describe visible outlines, taper/conical crowns, line angles, cervical contours, incisal edges/cusps and surface form",
+    "lower_teeth": "describe visible lower tooth contours, incisal edges, spacing, rotations and limitations",
+    "surface_appearance": "describe visible enamel texture, translucency and reflectance",
+    "visible_morphology_issues": [
+      {
+        "tooth": "FDI number when confidently identifiable",
+        "feature": "outline | taper | line_angles | cervical_contour | incisal_edge | embrasure | surface_form | lower_edge | spacing | alignment",
+        "observation": "neutral description of visible feature",
+        "visual_correction": "specific qualitative target or preserve as-is",
+        "confidence": 0.0
+      }
+    ]
   },
   "visualization_plan": {
     "alignment": true,
     "whitening": true,
+    "morphology_correction": true,
+    "contour_correction": true,
+    "lower_teeth_correction": true,
+    "surface_refinement": true,
     "veneers": false,
     "enamel_recontouring": false,
     "gum_modification": false
@@ -669,6 +752,17 @@ IMPORTANT:
 - Only set visualization_ready to FALSE when the overall photograph cannot reasonably be evaluated.
 - Do not use normal dental imperfections as blocking reasons.
 - blocking_reasons must remain [] unless there is a genuine image-quality problem.
+
+VISUALIZATION INSTRUCTION GENERATION — IMPORTANT:
+- The "image_edit_instructions" field must be a concise, actionable edit specification, not a generic summary.
+- First state the observed issue; then state the desired visible target relative to neighboring teeth, the dental arch, and the local incisal plane where those references are visible.
+- Distinguish alignment/position, crown rotation, incisal-edge level, crown outline/proportion, and shade. Do not collapse every issue into whitening.
+- If alignment is enabled and a discrepancy is visible, require a clearly noticeable structural correction to visible crown orientation/position and/or edge relationship. Do not invent exact degrees, millimeters, root position, or hidden anatomy.
+- For shape/contour changes, specify which visible outline or edge should change and which natural proportions/corners should be preserved.
+- State the priority of the requested treatment and explicitly say whitening, texture changes, sharpening, or color grading alone does not satisfy a structural-correction request.
+- Preserve identity, lips, gingiva, skin, lighting, camera perspective, background, and all teeth not targeted by the requested treatment.
+- Define a visual success test: the requested difference must be apparent at normal viewing size in a side-by-side comparison, while remaining realistic and not exaggerated.
+- Never invent a problem that is not visible; if direction or anatomy is uncertain, acknowledge uncertainty and choose only a defensible visible target.
 
 `;
 
@@ -1047,6 +1141,105 @@ function clampNumber(value, min, max) {
     return Math.max(min, Math.min(max, n));
 }
 
+
+// Option 1 prototype: derive simple pixel measurements from Kimi's crown bounding box.
+// These are bbox proxies, NOT segmented crown measurements or physical millimetres.
+function calculateBboxPixelMeasurements(bbox = {}) {
+    const width = Number(bbox.width);
+    const height = Number(bbox.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        return null;
+    }
+    return {
+        method: "kimi_bbox_proxy",
+        width_px: Number(width.toFixed(2)),
+        height_px: Number(height.toFixed(2)),
+        width_to_height_ratio_percent: Number(((width / height) * 100).toFixed(2)),
+        units: "pixels",
+        calibrated: false,
+        represents_actual_crown_boundary: false,
+        caveat: "Approximation derived from Kimi's bounding box; may include background or neighboring pixels. Not a crown measurement, clinical measurement, or millimetre estimate."
+    };
+}
+
+// Validate client-returned target metadata against the actual image. The browser
+// sends back a target from /api/tooth-localize, but the backend must not trust
+// client-supplied coordinates without checking their bounds.
+async function validateSelectedToothTarget(imageBuffer, target, requestedTooth) {
+    if (!target || typeof target !== "object" || Array.isArray(target)) {
+        throw new Error("Selected tooth location data is missing or invalid.");
+    }
+
+    const tooth = String(target.tooth || "").trim();
+    if (!VALID_FDI_TEETH.has(tooth) || tooth !== String(requestedTooth)) {
+        throw new Error("Selected tooth does not match a valid FDI localization target.");
+    }
+
+    const metadata = await sharp(imageBuffer).metadata();
+    const imageWidth = Number(metadata.width || 0);
+    const imageHeight = Number(metadata.height || 0);
+    if (!imageWidth || !imageHeight) {
+        throw new Error("Unable to determine uploaded image dimensions.");
+    }
+
+    const bbox = target.bbox || {};
+    const center = target.center || {};
+    const x = Number(bbox.x);
+    const y = Number(bbox.y);
+    const width = Number(bbox.width);
+    const height = Number(bbox.height);
+    const centerX = Number(center.x);
+    const centerY = Number(center.y);
+
+    if (![x, y, width, height, centerX, centerY].every(Number.isFinite)) {
+        throw new Error("Selected tooth coordinates must be valid pixel values.");
+    }
+    if (width < 1 || height < 1 || x < 0 || y < 0 ||
+        x + width > imageWidth || y + height > imageHeight ||
+        centerX < 0 || centerY < 0 || centerX >= imageWidth || centerY >= imageHeight) {
+        throw new Error("Selected tooth coordinates fall outside the uploaded image.");
+    }
+
+    const roundedX = Math.round(x);
+    const roundedY = Math.round(y);
+    const roundedWidth = Math.round(width);
+    const roundedHeight = Math.round(height);
+    const roundedCenterX = Math.round(centerX);
+    const roundedCenterY = Math.round(centerY);
+
+    if (roundedWidth < 1 || roundedHeight < 1 || roundedX < 0 || roundedY < 0 ||
+        roundedX + roundedWidth > imageWidth || roundedY + roundedHeight > imageHeight ||
+        roundedCenterX < 0 || roundedCenterY < 0 ||
+        roundedCenterX >= imageWidth || roundedCenterY >= imageHeight) {
+        throw new Error("Selected tooth coordinates fall outside the uploaded image.");
+    }
+
+    const confidenceNumber = Number(target.confidence);
+    const confidence = Number.isFinite(confidenceNumber)
+        ? clampNumber(confidenceNumber, 0, 1)
+        : 0;
+
+    return {
+        tooth,
+        label: String(target.label || ""),
+        visible: target.visible !== false,
+        analyzable: target.analyzable === true,
+        confidence,
+        reason: String(target.reason || ""),
+        center: { x: roundedCenterX, y: roundedCenterY },
+        bbox: {
+            x: roundedX,
+            y: roundedY,
+            width: roundedWidth,
+            height: roundedHeight
+        },
+        pixel_measurements: calculateBboxPixelMeasurements({
+            width: roundedWidth,
+            height: roundedHeight
+        })
+    };
+}
+
 function normalizeToothTargets(targets) {
     if (!Array.isArray(targets)) return [];
 
@@ -1097,7 +1290,8 @@ function normalizeToothTargets(targets) {
                 y,
                 width,
                 height
-            }
+            },
+            pixel_measurements: calculateBboxPixelMeasurements({ width, height })
         });
 
         seen.add(tooth);
@@ -1234,6 +1428,14 @@ function normalizeReport(report = {}) {
 
                 "Not clearly visible",
 
+            tooth_morphology: "Not clearly assessable",
+
+            lower_teeth: "Not clearly assessable",
+
+            surface_appearance: "Not clearly assessable",
+
+            visible_morphology_issues: [],
+
 
 
             ...(report.smile_characteristics || {})
@@ -1263,6 +1465,14 @@ function normalizeReport(report = {}) {
 
 
             gum_modification: false,
+
+            morphology_correction: false,
+
+            contour_correction: false,
+
+            lower_teeth_correction: false,
+
+            surface_refinement: false,
 
 
 
@@ -1314,7 +1524,7 @@ function normalizeReport(report = {}) {
 
 
 
-function buildImagePrompt(report) {
+function buildImagePrompt(report, customPrompt = "") {
 
 
 
@@ -1372,7 +1582,35 @@ IMPORTANT:
 
 Restrict all visual changes to the visible teeth and their immediate smile appearance.
 
+STRUCTURAL CHANGE REQUIREMENT — DO NOT IGNORE:
 
+TOOTH SIZE AND SHAPE REASONING (FULL-SMILE VISUALIZATION):
+- Before writing the final image-edit prompt, inspect the visible crowns individually and compare each tooth with its immediate neighbors and its matching tooth on the opposite side when both are clearly visible.
+- Distinguish the requested design dimensions: apparent crown width, visible crown height, outline/shape, conical/tapered appearance, mesial/distal line angles, cervical contour, facial surface form, corner roundness, incisal-edge/cusp contour, incisal embrasures, visible rotation/position, spacing/contact, lower incisal edges, surface texture/translucency, and shade. Do not collapse these into a generic instruction to "improve" the teeth.
+- If the report supports a shape or size correction, specify which tooth group or visible tooth should appear slightly wider/narrower, longer/shorter, more tapered/rounded, or have a corrected edge contour—and describe the desired relationship to neighboring teeth. Only change dimensions that are visibly supported by the photograph or explicitly requested in the report.
+- Maintain natural tooth-size hierarchy: central incisors should not become identical to lateral incisors or canines; retain individual crown character, realistic contact points, embrasures, translucency and gingival margins.
+- Do not resize every tooth uniformly. Do not force symmetry, use a universal ratio as a mandatory target, or invent millimetre dimensions from the uncalibrated photograph. Bounding-box measurements are rough pixel proxies, not crown measurements.
+- For alignment, specify the visible result at the crown level: how orientation, apparent position, spacing and incisal-edge relationship should differ. Do not imply root movement or infer invisible 3D anatomy.
+- When no tooth-specific structural change is supported or requested, preserve that tooth's size and shape rather than inventing a defect.
+- The final edit instructions must separate (1) structural changes, (2) shape/proportion changes, (3) shade changes, and (4) preservation constraints. Structural and shape changes must not be replaced by whitening or texture enhancement.
+- This is an EDITING task, not a request to merely preserve or describe the existing smile.
+- If the visualization plan enables alignment, visibly improve the alignment of the visible teeth: correct obvious rotations, irregular tooth positioning, uneven incisal edges, and unnatural spacing where appropriate.
+- If the report identifies a tooth-proportion or shape concern, make a visible but natural correction to the affected visible teeth, such as tooth width/length or edge shape, only to the extent supported by the report.
+- Preserve the person's identity and all non-dental regions, but do NOT preserve the original dental misalignment when alignment correction is requested.
+- Do not limit the result to whitening, color grading, sharpening, or a near-identical copy when structural changes are requested.
+- Make the structural difference noticeable at normal viewing size while remaining realistic; avoid extreme, perfectly uniform, or artificial-looking teeth.
+- Use the report's visualization plan, observations, treatment options, and image-edit instructions to decide which dental structures should change. Do not invent unrelated treatment.
+- When a tooth-shape/size change is requested, make it visibly apparent in the crown outline or apparent dimensions, not only in color or texture. Prefer tooth-specific qualitative targets and preserve unaffected teeth. Do not blindly apply the same width/height ratio to every tooth.
+
+ENABLED STRUCTURAL EDITS:
+${report.visualization_plan?.alignment === true ? "- ALIGNMENT CORRECTION IS ENABLED: make a visible improvement to tooth alignment, rotation, spacing, and the smile line where supported by the photograph." : "- Alignment correction is not explicitly enabled in the visualization plan. Do not make aggressive alignment changes unless the report's treatment options or image-edit instructions request them."}
+${report.visualization_plan?.veneers === true ? "- VENEER/TOOTH-SHAPE VISUALIZATION IS ENABLED: improve indicated visible tooth contours and proportions naturally." : ""}
+${report.visualization_plan?.enamel_recontouring === true ? "- ENAMEL RECONTOURING VISUALIZATION IS ENABLED: simulate only the indicated visible edge/contour result; this is not a clinical instruction to remove enamel." : ""}
+${report.visualization_plan?.morphology_correction === true ? "- TOOTH MORPHOLOGY CORRECTION IS ENABLED: correct supported visible outline, taper/conical appearance, line-angle, crown-shape and tooth-to-tooth proportion discrepancies." : ""}
+${report.visualization_plan?.contour_correction === true ? "- CONTOUR CORRECTION IS ENABLED: make the specified visible crown contour and incisal-edge changes apparent while preserving anatomy and contacts." : ""}
+${report.visualization_plan?.lower_teeth_correction === true ? "- LOWER-TEETH CORRECTION IS ENABLED: assess and correct supported visible lower-tooth contours/edges/spacing independently from upper teeth; retain natural edge variation." : ""}
+${report.visualization_plan?.surface_refinement === true ? "- SURFACE REFINEMENT IS ENABLED: improve realistic visible enamel form, texture and translucency; do not use surface refinement as a substitute for structural changes." : ""}
+${report.visualization_plan?.whitening === true ? "- WHITENING IS ENABLED: adjust shade naturally, but whitening must not replace any enabled structural corrections." : ""}
 
 ------------------------------------------------------------
 
@@ -1446,11 +1684,28 @@ ${
 
     report.image_edit_instructions ||
 
-    "Create a subtle, natural dental-aesthetic improvement while preserving the original photograph."
+    "Create a realistic dental-aesthetic improvement while preserving the original photograph."
 
 }
 
 
+
+COMPLETE COSMETIC MORPHOLOGY PASS — REQUIRED:
+- Treat this as a full-smile cosmetic visualization, not a whitening-only task. Inspect each clearly visible crown individually and then assess the complete upper/lower smile composition.
+- Correct visible cosmetic morphology discrepancies that are supported by the analysis and the requested general smile enhancement: conical/tapered outlines, inconsistent crown silhouettes, overly sharp or overly rounded visible corners, irregular incisal-edge contours, unnatural visible edge levels, obvious crown-level rotations/overlap, distracting spacing/contact appearance, and visibly inconsistent surface form. Do not invent defects or alter unaffected teeth.
+- For a tapered/conical tooth, adjust the visible crown outline only as much as needed to create a natural relationship to neighboring teeth. Preserve a plausible narrower cervical region, realistic line angles and contact points; do not turn a tapered tooth into a bulky rectangle or erase every embrasure.
+- Assess the lower teeth independently when visible. Where supported, improve lower incisal-edge irregularity and visible contour/spacing while retaining natural individual edge variation. Do not make the lower arch a ruler-straight row and do not copy upper-tooth dimensions onto lower teeth.
+- Preserve realistic mesial/distal line angles, facial surface convexity, cervical transitions, incisal embrasures, canine cusp character, enamel texture, translucency, and contact relationships. Surface refinement must not replace structural/shape corrections.
+- If the image does not support a reliable tooth-specific change, preserve that feature. Do not invent hidden anatomy, root movement, bite changes, or clinical measurements.
+- Make intended structural and shape corrections noticeable at normal viewing size in a side-by-side comparison, but never exaggerated or artificial.
+
+CLINICAL-INFORMED VISUAL DESIGN CONSTRAINTS:
+- Prefer a natural, face-appropriate result over perfect symmetry, uniformly shaped teeth, oversized crowns, or extreme whitening.
+- Preserve natural tooth-size hierarchy: central incisors, lateral incisors and canines should retain plausible individual differences rather than becoming copies of one another.
+- Preserve realistic gingival margins, contact points, embrasures, incisal contours, translucency, enamel texture and natural transitions between adjacent teeth.
+- Preserve natural asymmetry when appropriate. Do not reshape every tooth just to make the smile mathematically uniform.
+- Do not use generic adult upper-anterior measurements or aesthetic ratios as mandatory targets. The photograph is uncalibrated, so do not claim exact millimetres or exact width-to-height ratios.
+- Do not infer root position, true three-dimensional movement, bite contacts, or clinical feasibility from the photograph. This is a simulated aesthetic concept, not a treatment prescription.
 
 ------------------------------------------------------------
 
@@ -1464,7 +1719,7 @@ The result must look like the same original photograph after realistic cosmetic 
 
 
 
-Keep the result subtle and natural.
+Make every requested change clearly visible, especially alignment and tooth-structure corrections. "Natural" means anatomically plausible, not unchanged. Keep the magnitude clinically plausible rather than imperceptible.
 
 
 
@@ -1528,10 +1783,19 @@ Only modify the visible dental area.
 
 This is a visual dental treatment simulation, not a diagnosis.
 
+${customPrompt ? `
+------------------------------------------------------------
+USER'S CUSTOM REFINEMENT INSTRUCTIONS
+------------------------------------------------------------
 
+Apply the following user-requested changes to the supplied CURRENT visualization:
+
+${customPrompt}
+
+Interpret the request as a visual editing instruction. Make only the requested dental/smile appearance changes. Keep the same person, identity, facial features, skin, lips, nose, jaw, expression, lighting, camera angle, framing, and background unchanged. If the user asks for wider teeth or a wider smile, adjust tooth proportions/smile appearance naturally without changing the face or stretching the lips. If the user asks for whitening, keep realistic enamel texture and natural translucency; avoid an artificial pure-white appearance. Preserve all aspects not explicitly requested to change.
+` : ""}
 
 Generate ONLY the edited photograph.
-
 `;
 
 }
@@ -1545,6 +1809,67 @@ Generate ONLY the edited photograph.
 // ============================================================
 
 
+
+
+async function getRefinementImageBuffer(currentImage) {
+    const value = String(currentImage || "").trim();
+    if (!value) {
+        throw new Error("The current visualization is missing. Generate a visualization first.");
+    }
+
+    const dataUrlMatch = value.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=\r\n]+)$/i);
+    if (dataUrlMatch) {
+        const encoded = dataUrlMatch[2].replace(/\s/g, "");
+        // Reject oversized text payloads before allocating a decoded buffer.
+        if (encoded.length > 21 * 1024 * 1024) {
+            throw new Error("The current visualization is too large to refine (maximum 15 MB). ");
+        }
+        const buffer = Buffer.from(encoded, "base64");
+        if (!buffer.length) throw new Error("The current visualization data is invalid.");
+        if (buffer.length > 15 * 1024 * 1024) {
+            throw new Error("The current visualization is too large to refine (maximum 15 MB).");
+        }
+        const mimeToken = dataUrlMatch[1].toLowerCase();
+        const mimeType = mimeToken === "jpg" || mimeToken === "jpeg"
+            ? "image/jpeg"
+            : `image/${mimeToken}`;
+        // Confirm the data URL actually contains a decodable supported image.
+        const metadata = await sharp(buffer).metadata();
+        if (!metadata.width || !metadata.height || !["jpeg", "png", "webp"].includes(metadata.format)) {
+            throw new Error("The current visualization is not a valid PNG, JPEG, or WEBP image.");
+        }
+        const detectedMimeType = metadata.format === "jpeg"
+            ? "image/jpeg"
+            : `image/${metadata.format}`;
+        return { buffer, mimeType: detectedMimeType };
+    }
+
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(value);
+    } catch {
+        throw new Error("The current visualization URL is invalid.");
+    }
+
+    // Only fetch HTTPS image URLs hosted by Pollinations; do not allow arbitrary
+    // URLs from clients to become a server-side request.
+    if (parsedUrl.protocol !== "https:" || !/(^|\.)pollinations\.ai$/i.test(parsedUrl.hostname)) {
+        throw new Error("The current visualization must be a valid Pollinations HTTPS image URL.");
+    }
+
+    const response = await axios.get(value, {
+        responseType: "arraybuffer",
+        timeout: 60000,
+        maxContentLength: 15 * 1024 * 1024,
+        maxBodyLength: 15 * 1024 * 1024,
+        maxRedirects: 0
+    });
+    const mimeType = String(response.headers?.["content-type"] || "image/png").split(";")[0].trim();
+    if (!/^image\/(png|jpe?g|webp)$/i.test(mimeType)) {
+        throw new Error("The current visualization URL did not return a supported image.");
+    }
+    return { buffer: Buffer.from(response.data), mimeType };
+}
 
 async function generateSmile(
 
@@ -1596,7 +1921,7 @@ async function generateSmile(
 
         "model",
 
-        "microsoft/mai-image-2.6"
+        "openai/gpt-image-2"
 
     );
 
@@ -1743,6 +2068,7 @@ app.post(
     "/api/analyze",
 
     upload.single("image"),
+    validateUploadedImage,
 
 
 
@@ -2162,30 +2488,77 @@ async function analyzeSelectedTooth(
     target,
     fullReport
 ) {
-
-    const base64Image =
-        imageBuffer.toString("base64");
-
-    const imageDataUrl =
-        `data:${mimeType};base64,${base64Image}`;
+    const base64Image = imageBuffer.toString("base64");
+    const imageDataUrl = `data:${mimeType};base64,${base64Image}`;
 
     const prompt = `
-You are performing a second-pass visual analysis for a dentist.
+You are the tooth-specific visual analysis and image-editing-instruction specialist in a dental smile simulation workflow.
+Your output will be passed to a separate image-editing model. Your job is to describe a precise, image-grounded target result—not to write a vague cosmetic summary.
 
-The original photograph is the ONLY source of truth for whether the selected tooth exists and can be analyzed.
+SOURCE OF TRUTH:
+- Inspect the original, unannotated photograph. Do not treat an annotation, marker, bounding box, or selected FDI number as proof of anatomy.
+- Only describe features that are actually visible. Do not diagnose disease, infer hidden root positions, or claim to know a clinically correct 3D position from a 2D photograph.
+- Distinguish observed facts from uncertain estimates. If perspective, overlap, blur, or occlusion prevents a precise direction from being determined, say so and choose the most conservative visible correction supported by the image.
 
-The dentist selected FDI tooth ${target.tooth} from a list of teeth that the first-pass Kimi analysis marked as visible/analyzable.
+SELECTED TOOTH:
+FDI ${target.tooth} — ${target.label || "selected tooth"}
 
-FIRST-PASS TARGET METADATA:
+FIRST-PASS LOCALIZATION METADATA (location hint only; NOT a segmentation mask):
 ${JSON.stringify(target, null, 2)}
 
-IMPORTANT:
-- Independently look at the ORIGINAL photograph.
-- Verify that FDI tooth ${target.tooth} is actually visible and sufficiently identifiable.
-- Do NOT treat a marker, dot, bbox, or dentist selection as proof that the tooth exists.
-- Do NOT analyze another tooth if the selected tooth cannot be verified.
-- Do NOT diagnose disease.
-- Base every observation only on what is visibly present.
+FULL-SMILE CONTEXT (supporting context only):
+${JSON.stringify({
+        summary: fullReport?.summary || "",
+        smile_characteristics: fullReport?.smile_characteristics || {},
+        observations: Array.isArray(fullReport?.observations)
+            ? fullReport.observations.slice(0, 8)
+            : [],
+        visualization_plan: fullReport?.visualization_plan || {}
+    }, null, 2)}
+
+CLINICAL-INFORMED DESIGN PRINCIPLES:
+Apply the supplied Smile Enhancement AI guidance as a visual-design aid, not as clinical diagnosis or treatment advice:
+- Prefer natural, face-appropriate design over perfect symmetry, uniform tooth shapes, oversized crowns, or excessive whiteness.
+- Preserve individual tooth character and plausible natural asymmetry unless the requested visual change specifically addresses a visible feature.
+- Assess apparent crown proportions, outline, width/height impression, rounded/square/tapered corners, mesial/distal line angles, cervical contour, facial surface form, incisal contour/cusp, contact points, embrasures, visible overlap/spacing, shade harmony, translucency, and surface texture where visible.
+- Specifically determine whether the crown looks conical/tapered, peg-shaped/small, overly square, overly rounded, asymmetrically contoured, or irregular at its visible incisal edge; only describe what is supported by the original image.
+- Separate the targets for apparent width, visible height, outline/taper, corner shape, cervical contour, incisal edge, surface form, and shade. For each feature either specify a visible correction or explicitly preserve it.
+- If lower-tooth anatomy is the selected target, assess the visible lower incisal edge and contour without imposing upper-incisor proportions or a perfectly straight edge.
+- The supplied pixel_measurements are simple estimates calculated from the localization bounding box, not from a segmented crown boundary. Use them only as rough image-space context. A bounding box may include background or neighboring teeth, so do not treat its width-to-height ratio as the tooth's true crown ratio. Do not convert pixels to millimetres or claim clinical precision. Use visual qualitative assessment as the primary evidence; perspective, lens distortion, head tilt, occlusion, and partial visibility can mislead.
+- Do not infer root position, true 3D movement, bite function, enamel thickness, tooth vitality, gum health, or hidden disease.
+- Do not recommend irreversible treatment. This is a simulated visual concept only; a licensed dentist must evaluate clinical feasibility.
+- Keep the intended edit limited to visible and requested changes. Structural correction must not be replaced by whitening, sharpening, or texture changes.
+
+SELECTED-TOOTH SHAPE AND SIZE TARGETING — REQUIRED:
+For FDI ${target.tooth}, do not merely say "improve the shape" or "adjust proportions." Decide separately, using visible evidence, whether any of these are actually indicated:
+- apparent crown width (wider/narrower, or preserve as-is);
+- visible crown height/length (longer/shorter, or preserve as-is);
+- crown outline (less/more tapered, oval, rectangular, or rounded only when supported by the visible anatomy);
+- mesial/distal line angles, visible side contours, and cervical contour;
+- facial surface form, texture, and translucency;
+- visible contact/embrasure relationship with adjacent teeth;
+- incisal-edge level, slope, contour, cusp shape, or unevenness;
+- crown orientation/rotation and visible position relative to the arch;
+- visible contact, gap, overlap, or embrasure relationship with adjacent teeth.
+For every dimension, state either a concrete visible target or "preserve; no clear change supported." Do not invent millimetre values or exact ratios. Treat bbox-derived width/height as rough pixel context only, not true crown dimensions. If confidence or boundary clarity is low, explicitly reduce the scope of the proposed change and state the uncertainty.
+
+ASSESS THE SELECTED CROWN SYSTEMATICALLY:
+1. Identity and visibility: verify that the selected tooth is actually visible and distinguishable from its neighbors.
+2. Position in the arch: describe any visible displacement relative to the apparent dental-arch curve and neighboring teeth (for example, appears forward/back, inside/outside the visible arch, or overlapped). Only state a direction if the photo supports it.
+3. Rotation/orientation: describe the visible crown orientation and any rotation cue. Do not invent an exact degree of rotation.
+4. Alignment and incisal edge: compare the visible incisal edge with adjacent teeth and the local incisal plane. Identify whether it appears too high/low, tilted, stepped, or otherwise out of line when clearly visible.
+5. Shape and contour: assess visible crown outline, width-to-height impression, rounded/square/tapered corners, asymmetry, and edge contour. Do not prescribe a shape change unless a visible concern or selected treatment supports it.
+6. Proportions: assess only apparent visible crown proportions; remember perspective and partial coverage can distort apparent width or length.
+7. Contact and spacing: describe visible gaps, overlap, or crowding only where crown boundaries are distinguishable.
+8. Shade and surface: describe visible shade/texture, but do not let whitening or surface polishing replace requested structural correction.
+9. Neighbor relationship: name the visible relationship to adjacent teeth in plain language; do not assume unseen tooth surfaces or roots.
+
+DECISION RULES:
+- Set visualization.alignment=true when a visible position/orientation/edge discrepancy is present and alignment visualization is requested or appropriate to the stated task.
+- Set visualization.enamel_recontouring=true only when a visible edge/contour correction is specifically supported.
+- Set visualization.veneer_visualization=true only when the requested treatment includes veneer-like shape changes; do not use it as a generic fix for rotation.
+- Set visualization.whitening=true only when whitening is requested or supported by the treatment plan. Whitening is separate from structural correction.
+- Do not enable every flag automatically. Do not invent a structural defect simply to satisfy a prompt.
 
 If the selected tooth is NOT sufficiently visible or identifiable, return:
 {
@@ -2195,71 +2568,103 @@ If the selected tooth is NOT sufficiently visible or identifiable, return:
   "reason": "short reason"
 }
 
-If it IS sufficiently visible, return ONLY valid JSON using:
+If it IS sufficiently visible, return ONLY valid JSON using this structure:
 {
   "success": true,
   "tooth": "${target.tooth}",
-  "label": "...",
+  "label": "${target.label || "selected tooth"}",
   "analyzable": true,
   "confidence": 0.0,
   "assessment": {
-    "visibility": "...",
-    "alignment": "...",
-    "rotation": "...",
-    "spacing": "...",
-    "shape": "...",
-    "proportion": "...",
-    "incisal_edge": "...",
-    "shade": "...",
-    "surface_appearance": "...",
-    "relationship_to_adjacent_teeth": "..."
+    "visibility": "what is visible and any occlusion",
+    "alignment": "specific visible discrepancy or explicitly state none is clear",
+    "position_in_arch": "visible position relative to arch and neighbors; qualify uncertainty",
+    "rotation": "visible orientation and evidence; no invented degree",
+    "spacing": "visible contact, overlap, gap or crowding",
+    "shape": "visible crown outline, taper, corner character and contour",
+    "taper_assessment": "whether conical/tapered appearance is visible, uncertain, or not present",
+    "cervical_contour": "visible cervical outline and limitations",
+    "surface_anatomy": "visible facial surface form, line angles, texture and translucency",
+    "embrasures_contacts": "visible contact and incisal embrasure appearance",
+    "proportion": "apparent width/height impression and perspective limitations; bbox is only a rough proxy",
+    "size_shape_targets": {
+      "apparent_width": "specific desired visual change or preserve as-is",
+      "visible_height": "specific desired visual change or preserve as-is",
+      "crown_outline": "specific contour/taper target or preserve as-is",
+      "corner_shape": "specific corner target or preserve as-is",
+      "cervical_contour": "specific visible cervical outline target or preserve as-is",
+      "line_angles": "specific visible mesial/distal contour target or preserve as-is",
+      "surface_form": "specific visible facial surface target or preserve as-is",
+      "incisal_edge_shape": "specific edge/cusp target or preserve as-is",
+      "embrasures_contacts": "specific visible target or preserve as-is"
+    },
+    "incisal_edge": "relationship to adjacent edges/local incisal plane",
+    "shade": "visible shade; no unsupported shade diagnosis",
+    "surface_appearance": "visible texture/reflectance",
+    "relationship_to_adjacent_teeth": "specific visible comparison"
   },
   "visualization": {
-    "whitening": true,
+    "whitening": false,
     "alignment": false,
+    "morphology_correction": false,
+    "contour_correction": false,
+    "surface_refinement": false,
     "enamel_recontouring": false,
     "veneer_visualization": false
   },
-  "visualization_instructions": "Concise instructions describing only the changes to visualize on this tooth while preserving natural anatomy and the rest of the photograph.",
+  "visualization_instructions": "Detailed imperative instructions for the image-editing model, following the required structure below.",
   "summary": "Short tooth-specific summary."
 }
 
-Do not mention or rely on the bbox as if it were a segmentation mask.
-`;
+MANDATORY FORMAT FOR visualization_instructions:
+Write 5–9 concise, concrete instructions in natural language, in this order where applicable:
+A. TARGET: identify FDI ${target.tooth} as the only primary tooth to edit.
+B. OBSERVED PROBLEM: state the specific visible issue, not a generic phrase such as 'improve the smile'.
+C. STRUCTURAL TARGET: describe the desired visible result relative to the dental arch and adjacent teeth. For alignment, explicitly describe the crown's intended visible orientation/position and incisal-edge relationship. Do not invent exact millimeters, degrees, root movement, or invisible anatomy.
+D. SIZE AND SHAPE: state the target separately for apparent width, visible height, crown outline/taper, corner character, and incisal-edge contour. For each, either give a clear qualitative target supported by the image or explicitly say to preserve it. Never invent millimetres or force a generic ideal ratio.
+E. PRIORITY: say structural correction is the priority when alignment/shape correction is enabled. Whitening, color grading, texture enhancement, or sharpening alone does not satisfy the request.
+F. PRESERVATION: keep all non-target teeth, gingiva, lips, skin, face, lighting, camera perspective, and background unchanged. Permit only minimal blending at a direct contact edge if needed to avoid artifacts.
+G. REALISM: maintain plausible anatomy, enamel texture, translucency, and contact relationships; avoid oversized, duplicated, plastic, uniformly reshaped teeth.
+H. SUCCESS TEST: explicitly state what visible difference a side-by-side comparison must show. If no correction is justified by visible evidence, say that rather than fabricating one.
+
+WRITING QUALITY RULES:
+- Use direct, specific imperatives such as "rotate the visible crown toward..." only when that direction is supported by the image; otherwise describe the observable target without guessing direction.
+- Never use weak filler such as "gently improve", "make it nicer", "subtle adjustment", or "enhance aesthetics" in place of the actual target.
+- Do not overcorrect: change only the features needed to achieve the described result.
+- Do not say the tooth must be perfectly straight or perfectly symmetrical.
+- Make a requested correction clearly noticeable at normal viewing size, but do not exaggerate beyond what the image supports.
+- Preserve tooth identity and its natural character unless a specific visible contour issue is the target.
+- Whitening alone, texture-only changes, sharpening, or a near-identical copy is a failed result when alignment/structure is enabled.
+- Return valid JSON only. Do not wrap it in Markdown fences or add commentary.
+
+Do not treat the bbox as a segmentation mask.
+`
 
     console.log("");
     console.log("========================================");
     console.log("KIMI SELECTED TOOTH ANALYSIS");
     console.log("========================================");
     console.log("Tooth:", target.tooth);
+    console.log("Bounding-box pixel measurement (rough proxy):", target.pixel_measurements || calculateBboxPixelMeasurements(target.bbox));
 
-    const kimiResult =
-        await callKimiWithFallback({
-            imageDataUrl,
-            prompt,
-            operationName: `selected tooth ${target.tooth} analysis`,
-            primaryMaxTokens: 4096,
-            fallbackMaxTokens: 4096,
-            retryPrimaryWithoutStream: true
-        });
+    const kimiResult = await callKimiWithFallback({
+        imageDataUrl,
+        prompt,
+        operationName: `selected tooth ${target.tooth} analysis`,
+        primaryMaxTokens: 4096,
+        fallbackMaxTokens: 4096,
+        retryPrimaryWithoutStream: true
+    });
 
+    console.log("Kimi selected-tooth provider:", kimiResult.provider);
+    const result = parseKimiReport(kimiResult.content);
+    console.log("Selected-tooth analysis result received.");
     console.log(
-        "Kimi selected-tooth provider:",
-        kimiResult.provider
+        "Selected-tooth visualization instructions:",
+        String(result?.visualization_instructions || "").slice(0, 1800)
     );
-
-    const result =
-        parseKimiReport(kimiResult.content);
-
-    console.log(
-        "SELECTED TOOTH KIMI RESULT:",
-        JSON.stringify(result, null, 2)
-    );
-
     return result;
 }
-
-
 
 async function createToothReferenceImage(imageBuffer, target) {
     const metadata = await sharp(imageBuffer).metadata();
@@ -2372,51 +2777,101 @@ async function createToothReferenceImage(imageBuffer, target) {
 
 function buildToothVisualizationPrompt(
     target,
-    toothReport
+    toothReport,
+    customPrompt = ""
 ) {
-    return `
-Create a photorealistic dental visualization by editing the supplied ISOLATED TOOTH CROP.
+    const visualization = toothReport?.visualization || {};
+    const instructions = String(toothReport?.visualization_instructions || "").trim();
+    const userInstructions = String(customPrompt || "").trim().slice(0, 1200);
 
-IMPORTANT:
-The supplied image is NOT the full patient photograph. It is a cropped editing region taken from the original photograph and contains the selected tooth plus a small amount of surrounding visual context.
+    return `
+EDIT the supplied isolated tooth crop. This is a photorealistic image-editing task, not a request to describe the image.
+
+EDIT CONTRACT — A VISIBLE EDIT IS MANDATORY:
+- This is an image EDIT, not a prompt-following exercise where the original image is returned unchanged. A near-identical output is a FAILURE.
+- You MUST visibly change the selected tooth according to the tooth-specific Kimi assessment and visualization instructions below. Do not merely brighten, recolor, sharpen, smooth, or change highlights.
+- Before editing, identify the exact requested structural feature (for example: crown width/outline, taper, line angle, cusp/incisal contour, visible alignment, or spacing). After editing, that feature MUST look observably different at normal viewing size.
+- Make a deliberate, localized, moderate-but-natural change to the specified feature. The difference should be obvious in a side-by-side comparison without making the tooth exaggerated or anatomically implausible.
+- Keep morphology changes separate from shade, texture, and lighting changes. Shape changes must alter the visible crown silhouette or the specified visible crown geometry.
+- Preserve every feature the analysis explicitly says to preserve. Do not create a chip, notch, crack, missing enamel, or other defect absent from the original crop.
+- If the analysis provides a specific structural target, prioritize it over generic instructions to preserve the original appearance. Preserve the original only outside the requested edit and on features explicitly marked to remain unchanged.
 
 SELECTED TOOTH:
 FDI ${target.tooth} — ${target.label || "selected tooth"}
 
-LOCATION REFERENCE IN THE ORIGINAL IMAGE:
-${JSON.stringify({
-        center: target.center,
-        bbox: target.bbox
-    }, null, 2)}
+The crop contains the selected tooth and limited surrounding context. Use the location metadata only as a hint; it is NOT a segmentation mask.
+${JSON.stringify({ center: target.center, bbox: target.bbox }, null, 2)}
 
-TOOTH-SPECIFIC KIMI REPORT:
-${JSON.stringify(toothReport, null, 2)}
+TOOTH-SPECIFIC KIMI ASSESSMENT:
+${JSON.stringify(toothReport || {}, null, 2)}
 
-STRICT EDITING RULES:
+SELECTED-TOOTH MORPHOLOGY CHECK — REQUIRED:
+- Inspect the selected visible crown for outline, taper/conical appearance, mesial/distal line angles, cervical contour, facial surface form, corner character, incisal edge/cusp, visible embrasures/contact relationships, texture and translucency.
+- If the analysis identifies a conical/tapered outline and requests correction, make the selected crown visibly less tapered only to the specified degree; preserve a plausible cervical contour and natural contact/embrasure relationships. Do not make it bulky, square by default, or wider than the adjacent-tooth context supports.
+- If the analysis targets the incisal edge, lower edge, corner shape, surface form, or apparent crown proportions, make that specific structural/shape change visible. Whitening, sharpening, texture, or color grading alone does not satisfy a morphology correction.
+- Preserve all neighboring teeth and the rest of the photograph. The bounding box is only a localization hint, not a tooth segmentation mask.
 
-- Modify ONLY FDI ${target.tooth}.
-- The selected tooth is the ONLY dental structure that may be changed.
-- Do not whiten, reshape, resize, rotate, move, or otherwise alter adjacent teeth.
-- Do not modify any other tooth.
-- Do not modify gums.
-- Do not modify lips.
-- Do not modify skin.
-- Do not modify facial identity.
-- Do not modify the jaw or facial structure.
-- Preserve the original perspective, lighting, camera geometry and surrounding context.
-- Preserve natural tooth anatomy, translucency, enamel texture and realistic imperfections unless the Kimi instructions explicitly request a change.
-- Make the requested change subtle and clinically plausible.
-- Do not invent additional cosmetic improvements.
-- Do not add veneers, crowns, fillings, braces or other dental work unless explicitly requested.
-- Do not change the color or shape of neighboring teeth just to make the selected tooth match them.
+CLINICAL-INFORMED VISUAL DESIGN CONSTRAINTS:
+- Aim for a believable result that fits the existing smile rather than an idealized or mathematically symmetrical smile.
+- Preserve natural differences in tooth size, shape, corner character, translucency, texture, incisal edges, contact points, embrasures and gingival margins unless the Kimi instructions explicitly target that feature.
+- Do not enlarge teeth or make every tooth identical. Avoid opaque artificial whiteness, plastic enamel, repeated crown shapes, or a pasted-on smile.
+- Do not imply that this preview proves a clinically achievable result. Do not invent measurements or hidden anatomy from the photo.
+- Restrict edits to the selected visible crown and only the minimum immediate edge blending needed to avoid seams.
 
-The final image must be an unannotated photograph crop.
-There are no FDI labels, boxes, points or leader lines that should appear in the output.
+REQUIRED EDITING PRIORITY:
+${visualization.alignment === true
+    ? `ALIGNMENT CORRECTION IS REQUIRED. Make a clearly visible, noticeable structural change to the selected tooth's orientation and position according to the Kimi instructions. Correct the visible rotation/malposition so the tooth relates more naturally to neighboring teeth and the incisal plane. Do not return a near-identical tooth. Whitening or surface changes alone are a failed result.`
+    : `Alignment correction was not enabled by the tooth assessment. Do not invent a structural problem; perform only the changes explicitly requested in the Kimi instructions.`}
+${visualization.morphology_correction === true
+    ? "TOOTH MORPHOLOGY CORRECTION IS ENABLED: make the selected tooth's specifically identified outline, taper, line-angle, cervical-contour, or surface-form correction visibly apparent."
+    : ""}
+${visualization.contour_correction === true
+    ? "CONTOUR CORRECTION IS ENABLED: make the indicated crown silhouette, corner, contact/embrasure, or incisal-edge change visibly apparent without making the tooth bulky."
+    : ""}
+${visualization.surface_refinement === true
+    ? "SURFACE REFINEMENT IS ENABLED: improve realistic visible surface form, texture, and translucency; do not substitute this for structural changes."
+    : ""}
+${visualization.enamel_recontouring === true
+    ? "ENAMEL RECONTOURING VISUALIZATION IS ENABLED: simulate only the indicated visible contour/edge result; this is not a clinical instruction to remove enamel."
+    : ""}
+${visualization.veneer_visualization === true
+    ? "VENEER VISUALIZATION IS ENABLED: apply only the tooth-shape changes specified by the assessment, preserving realistic anatomy."
+    : ""}
+${visualization.whitening === true
+    ? "WHITENING IS ENABLED: adjust shade naturally, but whitening must never replace an enabled structural correction."
+    : ""}
 
-VISUALIZATION INSTRUCTIONS:
-${toothReport?.visualization_instructions || "Make only a subtle natural improvement to the selected tooth."}
+KIMI VISUALIZATION INSTRUCTIONS — FOLLOW THESE DIRECTLY:
+${instructions || "The assessment did not provide specific editing instructions. Do not invent a structural correction; preserve the original tooth."}
 
-Generate ONLY the edited image crop. Do not generate a full face or a new smile photograph.
+${userInstructions ? `DENTIST/USER CUSTOM INSTRUCTIONS — ALSO APPLY THESE IF THEY DO NOT CONFLICT WITH TOOTH IDENTITY, IMAGE PRESERVATION, OR REALISTIC ANATOMY:
+${userInstructions}
+
+Interpret the custom request as an additional instruction for FDI ${target.tooth} only. Make the requested visible shape, size, contour, alignment, or shade change explicit in the result. Do not apply it to neighboring teeth unless the user explicitly requests a broader edit, which this selected-tooth workflow does not support.` : "No additional user custom instructions were supplied."}
+
+SIZE/SHAPE EXECUTION CHECK:
+- If the Kimi assessment requests a change to apparent width, visible height, crown outline, corner shape, or incisal-edge contour, make that specific difference clearly visible on FDI ${target.tooth}; do not substitute whitening, sharpening, or surface texture changes.
+- If the assessment says to preserve a dimension, do not alter that dimension.
+- Do not use the bbox as the tooth mask or treat its ratio as a true crown ratio. Preserve adjacent teeth and allow only minimal contact-edge blending needed to avoid visible artifacts.
+
+MANDATORY BEFORE-RETURN SELF-CHECK:
+- Compare the edited selected tooth mentally against the input crop. Name the exact visible structural difference required by the assessment and ensure it is present in the pixels of the edited image.
+- If crown width/outline is targeted, change the visible side contour; if taper is targeted, change the mid-crown silhouette; if cusp/incisal contour is targeted, visibly reshape that edge; if alignment is targeted, visibly alter the crown's apparent orientation/position as instructed.
+- The requested change must be noticeable in a side-by-side comparison at normal viewing size. Do not make a token change that is only a shade or highlight difference.
+- Do NOT return the original crop unchanged. Do NOT use whitening, color, texture, gloss, lighting, or sharpening as a substitute for the requested structural edit.
+- Do not fabricate a chip, notch, crack, missing enamel, or other defect absent from the source. Do not turn a natural cusp into a flat incisor edge.
+- Preserve tooth identity and all dimensions/features explicitly marked to remain unchanged. Keep neighboring teeth and surrounding anatomy unchanged.
+- If no structural target exists in the assessment, make only the explicitly requested change; do not invent a defect or unsupported anatomical correction.
+
+PRESERVE:
+- All teeth other than FDI ${target.tooth}; do not change their shape, position, shade, or texture.
+- Gingiva, lips, skin, face, lighting, perspective, camera geometry and background/context.
+- The selected tooth's natural proportions, rounded corners and enamel texture except where the specified structural correction requires a change. Do not preserve a visible malposition when alignment correction is enabled.
+- Do not add braces, crowns, fillings, veneers, or other dental work unless explicitly requested in the tooth-specific assessment.
+- Do not create an artificial, oversized, perfectly uniform or plastic-looking tooth.
+
+OUTPUT:
+Return only the edited image crop, with no labels, text, boxes, markers, dots, or leader lines. Do not generate a new face or a full smile photograph.
 `;
 }
 
@@ -2424,10 +2879,12 @@ Generate ONLY the edited image crop. Do not generate a full face or a new smile 
 async function generateToothVisualization(
     editingCropBuffer,
     mimeType,
-    prompt
+    prompt,
+    referenceImages = []
 ) {
     const form = new FormData();
 
+    // First image is always the patient's isolated tooth crop.
     form.append(
         "image",
         editingCropBuffer,
@@ -2437,8 +2894,20 @@ async function generateToothVisualization(
         }
     );
 
+    // Multi-image edit mode: attach reference views as repeated "image" fields.
+    // The patient crop remains the first image; reference images are additional context.
+    for (const [index, reference] of referenceImages.entries()) {
+        if (!reference || !Buffer.isBuffer(reference.buffer) || !reference.buffer.length) {
+            continue;
+        }
+        form.append("image", reference.buffer, {
+            filename: reference.filename || `fdi-reference-${index + 1}.png`,
+            contentType: reference.mimeType || "image/png"
+        });
+    }
+
     form.append("prompt", prompt);
-    form.append("model", "microsoft/mai-image-2.6");
+    form.append("model", "openai/gpt-image-2");
 
     const response = await axios.post(
         "https://gen.pollinations.ai/v1/images/edits",
@@ -2563,64 +3032,276 @@ async function createIsolatedToothEditingCrop(
 }
 
 
+async function validateSelectedToothEdit(originalCropBuffer, editedCropBuffer, target, toothReport) {
+    // Compare original (left) and edited (right) crops with a vision-based QA gate.
+    // This is a visual quality check, not a clinical diagnosis or guarantee.
+    const originalMeta = await sharp(originalCropBuffer).metadata();
+    const editedMeta = await sharp(editedCropBuffer).metadata();
+    const panelWidth = Math.max(1, Math.min(700, Number(originalMeta.width || 0), Number(editedMeta.width || 0)));
+    const panelHeight = Math.max(1, Math.min(700, Number(originalMeta.height || 0), Number(editedMeta.height || 0)));
+    const left = await sharp(originalCropBuffer).resize(panelWidth, panelHeight, { fit: "fill" }).png().toBuffer();
+    const right = await sharp(editedCropBuffer).resize(panelWidth, panelHeight, { fit: "fill" }).png().toBuffer();
+    const comparison = await sharp({
+        create: { width: panelWidth * 2, height: panelHeight, channels: 3, background: "white" }
+    }).composite([
+        { input: left, left: 0, top: 0 },
+        { input: right, left: panelWidth, top: 0 }
+    ]).png().toBuffer();
+    const imageDataUrl = `data:image/png;base64,${comparison.toString("base64")}`;
+    const prompt = `STRICT NO-OP REJECTION REVIEW. The comparison image shows ORIGINAL crop on the LEFT and EDITED crop on the RIGHT. Selected tooth: FDI ${target.tooth}. Intended change: ${JSON.stringify({ summary: toothReport?.summary, visualization: toothReport?.visualization, visualization_instructions: toothReport?.visualization_instructions })}. Compare the selected tooth's visible outline/geometry, not just color or texture. Return JSON only with keys pass (boolean), correction_visible (boolean), target_tooth_preserved (boolean), unintended_changes (boolean), invented_defect (boolean), reason (short string). Set correction_visible=false and pass=false if the requested structural change cannot be clearly seen at normal viewing size, if the crown silhouette is effectively unchanged, or if only shade/highlights/texture changed. Pass only if the requested feature has a perceptible visible change, the tooth remains plausible and recognizable, preserved features remain consistent, and no obvious artifacts or neighboring-tooth changes appear. Fail if a structural change was requested but the result is near-identical, or if an unsupported notch/chip/defect was introduced. Do not diagnose disease; assess only visible image-edit quality.`;
+    const review = await callKimiWithFallback({
+        imageDataUrl,
+        prompt,
+        operationName: `selected tooth ${target.tooth} edit QA`,
+        primaryMaxTokens: 1200,
+        fallbackMaxTokens: 1200,
+        retryPrimaryWithoutStream: true
+    });
+    let parsed;
+    try {
+        const raw = String(review.content || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        const match = raw.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(match ? match[0] : raw);
+    } catch (error) {
+        const qaError = new Error("Selected-tooth visual QA returned invalid JSON; edit was not approved.");
+        qaError.code = "TOOTH_EDIT_QA_FAILED";
+        throw qaError;
+    }
+    console.log("Selected-tooth visual QA:", parsed);
+    if (parsed.pass !== true || parsed.correction_visible !== true || parsed.target_tooth_preserved !== true || parsed.unintended_changes === true || parsed.invented_defect === true) {
+        const qaError = new Error(`Selected-tooth edit failed visual QA: ${String(parsed.reason || "quality checks did not pass").slice(0, 300)}`);
+        qaError.code = "TOOTH_EDIT_QA_FAILED";
+        throw qaError;
+    }
+    return parsed;
+}
+
 async function compositeIsolatedToothOntoOriginal(
     originalBuffer,
     generatedCropBuffer,
     cropInfo
 ) {
-    const generated = sharp(generatedCropBuffer).resize({
-        width: cropInfo.width,
-        height: cropInfo.height,
-        fit: "fill"
-    });
+    // Use a smooth geometric mask around the selected-tooth localization box.
+    // Do NOT derive alpha from original enamel pixels: that clips any newly
+    // generated crown silhouette to the old tooth outline and creates notches.
+    // This is an interim blend mask, not clinical-grade tooth segmentation.
+    const width = Math.round(Number(cropInfo.width));
+    const height = Math.round(Number(cropInfo.height));
+    const left = Math.round(Number(cropInfo.left));
+    const top = Math.round(Number(cropInfo.top));
+    const toothX = Number(cropInfo.toothX);
+    const toothY = Number(cropInfo.toothY);
+    const toothWidth = Math.max(1, Number(cropInfo.toothWidth));
+    const toothHeight = Math.max(1, Number(cropInfo.toothHeight));
 
-    // The Kimi bbox is the localization authority. We only allow the
-    // generated crop to replace pixels inside that target region. A soft
-    // feather reduces visible seams at the tooth boundary.
-    const feather = Math.max(
-        3,
-        Math.min(8, Math.round(Math.min(cropInfo.toothWidth, cropInfo.toothHeight) * 0.08))
-    );
+    if (!width || !height || width < 1 || height < 1 ||
+        left < 0 || top < 0 ||
+        !Number.isFinite(toothX) || !Number.isFinite(toothY) ||
+        !Number.isFinite(toothWidth) || !Number.isFinite(toothHeight)) {
+        throw new Error("Invalid selected-tooth crop dimensions for compositing.");
+    }
 
-    const maskSvg = `
-<svg width="${cropInfo.width}" height="${cropInfo.height}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100%" height="100%" fill="black"/>
-    <rect
-        x="${cropInfo.toothX}"
-        y="${cropInfo.toothY}"
-        width="${cropInfo.toothWidth}"
-        height="${cropInfo.toothHeight}"
-        rx="${Math.max(4, Math.round(Math.min(cropInfo.toothWidth, cropInfo.toothHeight) * 0.10))}"
-        fill="white"
-        filter="url(#blur)"
-    />
-    <defs>
-        <filter id="blur" x="-30%" y="-30%" width="160%" height="160%">
+    // Expand the target slightly to accommodate the new crown silhouette.
+    // Keep the mask bounded to the localized target region to reduce changes
+    // to adjacent teeth and surrounding tissue.
+    const padX = Math.max(2, Math.round(toothWidth * 0.10));
+    const padY = Math.max(2, Math.round(toothHeight * 0.07));
+    const x0 = Math.max(0, toothX - padX);
+    const y0 = Math.max(0, toothY - padY);
+    const x1 = Math.min(width, toothX + toothWidth + padX);
+    const y1 = Math.min(height, toothY + toothHeight + padY);
+    const maskWidth = Math.max(1, x1 - x0);
+    const maskHeight = Math.max(1, y1 - y0);
+
+    // SVG renders a clean, antialiased oval with transparent surroundings.
+    // A moderate feather softens the boundary without smearing the crown.
+    const rx = Math.max(1, maskWidth * 0.49);
+    const ry = Math.max(1, maskHeight * 0.49);
+    const feather = Math.max(1.2, Math.min(3.5, Math.min(toothWidth, toothHeight) * 0.025));
+    const maskSvg = Buffer.from(`
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="feather" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="${feather}"/>
-        </filter>
-    </defs>
-</svg>`;
+          </filter>
+        </defs>
+        <ellipse
+          cx="${(x0 + x1) / 2}"
+          cy="${(y0 + y1) / 2}"
+          rx="${rx}"
+          ry="${ry}"
+          fill="white"
+          filter="url(#feather)"
+        />
+      </svg>
+    `);
 
-    const maskBuffer = await sharp(Buffer.from(maskSvg))
-        .png()
-        .toBuffer();
-
-    const generatedRgba = await generated
+    const maskRaw = await sharp(maskSvg)
+        .greyscale()
         .removeAlpha()
-        .joinChannel(maskBuffer)
-        .png()
+        .raw()
         .toBuffer();
+
+    const expectedMaskLength = width * height;
+    if (maskRaw.length !== expectedMaskLength) {
+        throw new Error("Selected-tooth blend mask dimensions do not match the source crop.");
+    }
+
+    const { data: generatedRaw, info: generatedInfo } = await sharp(generatedCropBuffer)
+        .resize(width, height, { fit: "fill" })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+    if (generatedInfo.channels !== 4 || generatedRaw.length !== expectedMaskLength * 4) {
+        throw new Error("Unable to prepare generated crop for masked compositing.");
+    }
+
+    for (let i = 0; i < expectedMaskLength; i++) {
+        generatedRaw[i * 4 + 3] = maskRaw[i];
+    }
+
+    const maskedGeneratedPng = await sharp(generatedRaw, {
+        raw: { width, height, channels: 4 }
+    }).png().toBuffer();
 
     return sharp(originalBuffer)
-        .composite([
-            {
-                input: generatedRgba,
-                left: cropInfo.left,
-                top: cropInfo.top
-            }
-        ])
+        .composite([{
+            input: maskedGeneratedPng,
+            left,
+            top,
+            blend: "over"
+        }])
         .jpeg({ quality: 98 })
         .toBuffer();
+}
+
+// ============================================================
+// HYBRID FULL-TOOTH-SET REPLACEMENT WORKFLOW
+// Generate the visible tooth set together, then composite only tooth regions
+// back into the original photograph. This is separate from selected-tooth edit.
+// ============================================================
+
+function buildSmileReplacementPrompt(fullReport, customPrompt = "") {
+    const userRequest = String(customPrompt || "").trim().slice(0, 1600);
+    return `
+Create a photorealistic cosmetic smile visualization by REGENERATING THE VISIBLE TEETH AS ONE COORDINATED SET. This is not a request to preserve every original tooth pixel. The visible tooth geometry must be newly generated to reflect the aesthetic plan, while retaining the original person's identity and photographic context.
+
+SOURCE IMAGE RULES:
+- Use the supplied crop as the exact source photograph and keep its camera angle, perspective, mouth opening, lips, skin, lighting, and background consistent.
+- Replace/regenerate the visible upper and lower tooth crowns as a coordinated set. Do not merely whiten, sharpen, or polish the existing tooth pixels.
+- Keep the tooth set natural and individualized: plausible crown outlines, tooth-to-tooth size hierarchy, natural incisal edges/cusps, contacts, embrasures, shade gradients, enamel translucency and surface texture.
+- Avoid identical repeated crowns, excessive symmetry, oversized teeth, opaque pure-white teeth, plastic gloss, artificial gums, floating teeth, duplicated teeth, or invented missing anatomy.
+- Keep the original gingival margins and visible gum tissue as consistent as possible. Do not regenerate lips, face, skin, or the entire scene.
+- Do not add labels, arrows, bounding boxes, UI elements, text, or watermarks.
+- This is an aesthetic visualization, not a clinical diagnosis or guarantee of treatment feasibility.
+
+AESTHETIC CONTEXT (visual observations only):
+${JSON.stringify({
+        summary: fullReport?.summary || "",
+        observations: Array.isArray(fullReport?.observations) ? fullReport.observations.slice(0, 12) : [],
+        smile_characteristics: fullReport?.smile_characteristics || {},
+        visualization_plan: fullReport?.visualization_plan || {},
+        tooth_targets: Array.isArray(fullReport?.tooth_targets) ? fullReport.tooth_targets : []
+    }, null, 2)}
+
+${userRequest ? `USER/DENTIST DESIGN REQUEST:\n${userRequest}` : "Design goal: natural, harmonious tooth shapes and proportions while retaining realistic individual variation and the original smile context."}
+
+MANDATORY RESULT: the generated visible tooth crowns must have perceptibly regenerated geometry as a coherent set, not just a color/texture adjustment. Preserve all non-tooth regions in the supplied crop as closely as possible. Return only the edited image.
+`;
+}
+
+async function createSmileReplacementCrop(imageBuffer, targets) {
+    const metadata = await sharp(imageBuffer).metadata();
+    const imageWidth = Number(metadata.width || 0);
+    const imageHeight = Number(metadata.height || 0);
+    if (!imageWidth || !imageHeight) throw new Error("Unable to determine original image dimensions.");
+
+    const valid = (Array.isArray(targets) ? targets : []).filter(t => {
+        const b = t?.bbox || {};
+        return t?.visible !== false && Number(b.width) > 0 && Number(b.height) > 0 &&
+            [b.x, b.y, b.width, b.height].every(v => Number.isFinite(Number(v)));
+    });
+    if (valid.length < 4) throw new Error("At least four visible tooth locations are required for full-tooth-set replacement.");
+
+    const boxes = valid.map(t => ({
+        x: Math.max(0, Number(t.bbox.x)), y: Math.max(0, Number(t.bbox.y)),
+        right: Math.min(imageWidth, Number(t.bbox.x) + Number(t.bbox.width)),
+        bottom: Math.min(imageHeight, Number(t.bbox.y) + Number(t.bbox.height)),
+        width: Number(t.bbox.width), height: Number(t.bbox.height), tooth: String(t.tooth || "")
+    }));
+    const minX = Math.min(...boxes.map(b => b.x));
+    const minY = Math.min(...boxes.map(b => b.y));
+    const maxX = Math.max(...boxes.map(b => b.right));
+    const maxY = Math.max(...boxes.map(b => b.bottom));
+    const padX = Math.round((maxX - minX) * 0.14);
+    const padY = Math.round((maxY - minY) * 0.22);
+    const left = Math.max(0, Math.floor(minX - padX));
+    const top = Math.max(0, Math.floor(minY - padY));
+    const right = Math.min(imageWidth, Math.ceil(maxX + padX));
+    const bottom = Math.min(imageHeight, Math.ceil(maxY + padY));
+    const width = right - left, height = bottom - top;
+    const buffer = await sharp(imageBuffer).extract({ left, top, width, height }).jpeg({ quality: 98 }).toBuffer();
+    return {
+        buffer, left, top, width, height,
+        toothBoxes: boxes.map(b => ({
+            tooth: b.tooth,
+            x: Math.max(0, b.x - left), y: Math.max(0, b.y - top),
+            width: Math.max(1, Math.min(width, b.right - b.x)),
+            height: Math.max(1, Math.min(height, b.bottom - b.y))
+        }))
+    };
+}
+
+async function compositeSmileReplacementOntoOriginal(originalBuffer, generatedCropBuffer, cropInfo) {
+    const svgShapes = cropInfo.toothBoxes.map(b => {
+        // Slightly expand localization boxes to cover the visible crown outline;
+        // overlapping ellipses merge into a single mask for neighboring teeth.
+        const cx = b.x + b.width / 2;
+        const cy = b.y + b.height / 2;
+        const rx = Math.max(2, b.width * 0.60);
+        const ry = Math.max(2, b.height * 0.57);
+        return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="white"/>`;
+    }).join("\n");
+    const blur = Math.max(2, Math.min(7, Math.round(Math.min(cropInfo.width, cropInfo.height) * 0.012)));
+    const maskSvg = `<svg width="${cropInfo.width}" height="${cropInfo.height}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="black"/><g filter="url(#soft)">${svgShapes}</g><defs><filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs></svg>`;
+    const mask = await sharp(Buffer.from(maskSvg)).png().toBuffer();
+    const generated = await sharp(generatedCropBuffer).resize({ width: cropInfo.width, height: cropInfo.height, fit: "fill" }).removeAlpha().joinChannel(mask).png().toBuffer();
+    return sharp(originalBuffer).composite([{ input: generated, left: cropInfo.left, top: cropInfo.top }]).jpeg({ quality: 98 }).toBuffer();
+}
+
+async function validateSmileReplacement(originalCropBuffer, generatedCropBuffer, fullReport) {
+    const a = await sharp(originalCropBuffer).metadata();
+    const b = await sharp(generatedCropBuffer).metadata();
+    const width = Math.max(1, Math.min(700, Number(a.width || 0), Number(b.width || 0)));
+    const height = Math.max(1, Math.min(700, Number(a.height || 0), Number(b.height || 0)));
+    const left = await sharp(originalCropBuffer).resize(width, height, { fit: "fill" }).png().toBuffer();
+    const right = await sharp(generatedCropBuffer).resize(width, height, { fit: "fill" }).png().toBuffer();
+    const panel = await sharp({ create: { width: width * 2, height, channels: 3, background: "white" } })
+        .composite([{ input: left, left: 0, top: 0 }, { input: right, left: width, top: 0 }]).png().toBuffer();
+    const prompt = `Review this before/after comparison: ORIGINAL on LEFT, GENERATED tooth-set crop on RIGHT. This is visual quality control, not diagnosis. Return JSON only: {"pass":boolean,"teeth_visibly_regenerated":boolean,"mouth_context_preserved":boolean,"obvious_artifacts":boolean,"reason":"short"}. Fail if the tooth geometry is effectively unchanged or only color/texture changed. Fail if teeth are duplicated/missing, obviously malformed, floating, plastic-looking, or if the lips/mouth context is substantially changed. The goal is visibly regenerated but natural tooth crowns as a coordinated set. Context: ${JSON.stringify({summary:fullReport?.summary || "", observations:fullReport?.observations || []})}`;
+    const review = await callKimiWithFallback({
+        imageDataUrl: `data:image/png;base64,${panel.toString("base64")}`,
+        prompt, operationName: "hybrid smile replacement QA",
+        primaryMaxTokens: 1000, fallbackMaxTokens: 1000, retryPrimaryWithoutStream: true
+    });
+    let parsed;
+    try {
+        const raw = String(review.content || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        const match = raw.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(match ? match[0] : raw);
+    } catch {
+        const err = new Error("Smile replacement quality review returned invalid JSON.");
+        err.code = "SMILE_REPLACEMENT_QA_FAILED";
+        throw err;
+    }
+    console.log("Hybrid smile replacement QA:", parsed);
+    if (parsed.pass !== true || parsed.teeth_visibly_regenerated !== true || parsed.mouth_context_preserved !== true || parsed.obvious_artifacts === true) {
+        const err = new Error(`Hybrid smile replacement failed visual QA: ${String(parsed.reason || "quality checks did not pass").slice(0, 300)}`);
+        err.code = "SMILE_REPLACEMENT_QA_FAILED";
+        throw err;
+    }
+    return parsed;
 }
 
 
@@ -2847,10 +3528,10 @@ function normalizePreciseToothTargets(
         centerX = Math.round(Math.max(0, Math.min(imageWidth - 1, centerX)));
         centerY = Math.round(Math.max(0, Math.min(imageHeight - 1, centerY)));
 
-        const confidence = Math.max(
-            0,
-            Math.min(1, Number(item?.confidence ?? 0))
-        );
+        const rawConfidence = Number(item?.confidence ?? 0);
+        const confidence = Number.isFinite(rawConfidence)
+            ? Math.max(0, Math.min(1, rawConfidence))
+            : 0;
 
         normalized.push({
             tooth,
@@ -2885,6 +3566,7 @@ function normalizePreciseToothTargets(
 app.post(
     "/api/tooth-localize",
     upload.single("image"),
+    validateUploadedImage,
     async (req, res) => {
         try {
             if (!req.file) {
@@ -2957,6 +3639,7 @@ app.post(
 app.post(
     "/api/tooth-analyze",
     upload.single("image"),
+    validateUploadedImage,
     async (req, res) => {
         try {
             if (!req.file) {
@@ -3000,6 +3683,19 @@ app.post(
                 });
             }
 
+            try {
+                target = await validateSelectedToothTarget(
+                    req.file.buffer,
+                    target,
+                    tooth
+                );
+            } catch (validationError) {
+                return res.status(400).json({
+                    success: false,
+                    error: validationError.message
+                });
+            }
+
             if (target.analyzable !== true) {
                 return res.status(422).json({
                     success: false,
@@ -3036,7 +3732,7 @@ app.post(
             console.log("KIMI SELECTED TOOTH VERIFICATION");
             console.log("========================================");
             console.log("FDI:", tooth);
-            console.log("Target:", JSON.stringify(target, null, 2));
+            console.log("Target confidence:", target.confidence);
 
             const toothReport = await analyzeSelectedTooth(
                 req.file.buffer,
@@ -3100,12 +3796,65 @@ app.post(
 
 
 // ============================================================
+// API: HYBRID FULL-SMILE TOOTH-SET REPLACEMENT
+// ============================================================
+app.post(
+    "/api/smile-replacement-visualize",
+    upload.single("image"),
+    validateUploadedImage,
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, error: "Please upload the original smile photograph." });
+            }
+            let payload = {};
+            try { payload = JSON.parse(req.body.payload || "{}"); }
+            catch { return res.status(400).json({ success: false, error: "Invalid smile replacement payload." }); }
+            const customPrompt = String(payload.customPrompt || "").trim();
+            if (customPrompt.length > 1600) {
+                return res.status(400).json({ success: false, error: "Smile design instructions must be 1,600 characters or fewer." });
+            }
+            let fullReport = payload.fullReport || payload.report || {};
+            let targets = Array.isArray(fullReport.tooth_targets) ? fullReport.tooth_targets : [];
+            if (targets.length < 4) {
+                const localization = await localizeTeethWithKimi(req.file.buffer, req.file.mimetype);
+                const meta = await sharp(req.file.buffer).metadata();
+                targets = normalizePreciseToothTargets(localization.teeth, Number(meta.width || 0), Number(meta.height || 0));
+            }
+            const cropInfo = await createSmileReplacementCrop(req.file.buffer, targets);
+            const prompt = buildSmileReplacementPrompt(fullReport, customPrompt);
+            console.log("Hybrid smile replacement crop:", { left: cropInfo.left, top: cropInfo.top, width: cropInfo.width, height: cropInfo.height, visibleToothBoxes: cropInfo.toothBoxes.length });
+            const imageResult = await generateToothVisualization(cropInfo.buffer, "image/jpeg", prompt);
+            const generatedImage = extractGeneratedImage(imageResult);
+            if (!generatedImage) throw new Error("Pollinations returned no generated tooth-set image.");
+            const generatedCropBuffer = await generatedImageToBuffer(generatedImage);
+            const visualQa = await validateSmileReplacement(cropInfo.buffer, generatedCropBuffer, fullReport);
+            const finalBuffer = await compositeSmileReplacementOntoOriginal(req.file.buffer, generatedCropBuffer, cropInfo);
+            return res.json({
+                success: true,
+                mode: "hybrid-full-tooth-set-replacement",
+                visualQa,
+                generatedImage: "data:image/jpeg;base64," + finalBuffer.toString("base64")
+            });
+        } catch (error) {
+            console.error("Hybrid smile replacement error:", error.response?.data || error.message);
+            if (error.code === "SMILE_REPLACEMENT_QA_FAILED") {
+                return res.status(422).json({ success: false, code: error.code, error: error.message, retryable: true });
+            }
+            return res.status(500).json({ success: false, error: error.message || "Unable to generate the replacement tooth set." });
+        }
+    }
+);
+
+
+// ============================================================
 // API: SELECTED TOOTH VISUALIZATION
 // ============================================================
 
 app.post(
     "/api/tooth-visualize",
     upload.single("image"),
+    validateUploadedImage,
     async (req, res) => {
         try {
             if (!req.file) {
@@ -3137,6 +3886,49 @@ app.post(
 
             const target = payload.target;
             const toothReport = payload.toothReport;
+            const selectedVariantId = String(payload.selectedVariantId || "").trim();
+            const customPrompt = String(payload.customPrompt || "").trim();
+
+            // Retrieve the matching FDI database record for this visualization.
+            // Missing image files are expected until the reference library is populated.
+            let fdiReference;
+            try {
+                fdiReference = getToothReference(tooth);
+            } catch (referenceError) {
+                console.error("FDI reference lookup failed:", referenceError.message);
+                return res.status(500).json({
+                    success: false,
+                    error: "The FDI tooth reference library could not be loaded. Check data/fdi-tooth-library/ and restart the server."
+                });
+            }
+
+            if (customPrompt.length > 1200) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Custom tooth instructions must be 1,200 characters or fewer."
+                });
+            }
+
+            const availableShapeVariants = Array.isArray(fdiReference.shape_variants)
+                ? fdiReference.shape_variants
+                : [];
+            const selectedShapeVariant = availableShapeVariants.find((variant) =>
+                String(variant?.id || "") === selectedVariantId
+            );
+            if (availableShapeVariants.length && !selectedVariantId) {
+                return res.status(400).json({
+                    success: false,
+                    code: "SHAPE_VARIANT_REQUIRED",
+                    error: "Choose a tooth shape before generating the visualization."
+                });
+            }
+            if (selectedVariantId && !selectedShapeVariant) {
+                return res.status(400).json({
+                    success: false,
+                    code: "INVALID_SHAPE_VARIANT",
+                    error: `The selected shape variant is not available for FDI ${tooth}.`
+                });
+            }
 
             if (
                 !target ||
@@ -3150,9 +3942,33 @@ app.post(
                 });
             }
 
+            let validatedTarget;
+            try {
+                validatedTarget = await validateSelectedToothTarget(
+                    req.file.buffer,
+                    target,
+                    tooth
+                );
+            } catch (validationError) {
+                return res.status(400).json({
+                    success: false,
+                    error: validationError.message
+                });
+            }
+
+            if (validatedTarget.analyzable !== true) {
+                return res.status(422).json({
+                    success: false,
+                    code: "TOOTH_NOT_ANALYZABLE",
+                    error: validatedTarget.reason ||
+                        `FDI ${tooth} was not approved as individually analyzable by localization.`
+                });
+            }
+
             if (
                 !toothReport?.success ||
-                toothReport?.analyzable === false
+                toothReport?.analyzable === false ||
+                String(toothReport?.tooth || "") !== tooth
             ) {
                 return res.status(422).json({
                     success: false,
@@ -3165,46 +3981,174 @@ app.post(
             console.log("ISOLATED TOOTH VISUALIZATION");
             console.log("========================================");
             console.log("Tooth:", tooth);
-            console.log("Target:", JSON.stringify(target, null, 2));
-            console.log("Tooth report:", JSON.stringify(toothReport, null, 2));
+            console.log("Target confidence:", validatedTarget.confidence);
+            console.log("Verified tooth report received.");
 
             // 1. Keep the full annotated reference image for the dentist/UI.
             const referenceBuffer =
                 await createToothReferenceImage(
                     req.file.buffer,
-                    target
+                    validatedTarget
                 );
 
-            // 2. Create a small editing crop from the ORIGINAL photograph.
-            //    The annotated reference is NOT sent to MAI anymore.
-            const cropInfo =
-                await createIsolatedToothEditingCrop(
-                    req.file.buffer,
-                    target
-                );
+            // 2. Edit the FULL original photograph directly.
+            //    Do not crop-and-composite: that pipeline repeatedly created visible
+            //    rectangular seams and could clip the edited crown at the mask edge.
+            const originalMetadata = await sharp(req.file.buffer).metadata();
+            const fullImagePrompt = `
+EDIT THE FULL PHOTOGRAPH IN PLACE. Return a full-frame image with the same dimensions and composition as the input. Do not return a crop, inset, patch, collage, or duplicate overlay.
 
-            console.log("MAI editing crop:", {
-                left: cropInfo.left,
-                top: cropInfo.top,
-                width: cropInfo.width,
-                height: cropInfo.height,
-                toothX: cropInfo.toothX,
-                toothY: cropInfo.toothY,
-                toothWidth: cropInfo.toothWidth,
-                toothHeight: cropInfo.toothHeight
+PRIMARY TASK: Edit only the selected visible tooth FDI ${tooth} (${validatedTarget.label || "selected tooth"}) in the original smile photograph. Use the localization bounding box only as a location hint, not as a visible rectangle or segmentation mask:
+${JSON.stringify({ bbox: validatedTarget.bbox, center: validatedTarget.center, imageWidth: originalMetadata.width, imageHeight: originalMetadata.height }, null, 2)}
+
+TOOTH-SPECIFIC ASSESSMENT:
+${JSON.stringify(toothReport || {}, null, 2)}
+
+PRESERVATION REQUIREMENTS:
+- Keep the whole photograph, face, lips, gingiva, lighting, camera angle, image framing, and background intact.
+- Change only the selected tooth's visible crown as specified in the assessment. Keep all other teeth unchanged.
+- Do not draw or preserve any rectangular boundary, crop edge, mask edge, frame, box, patch, or pasted region.
+- Blend the tooth change naturally into its actual outline and contacts; preserve realistic enamel texture, translucency, shadows, and gumline.
+- Do not alter the surrounding gum or adjacent teeth to make the edit easier. Do not invent chips, notches, or defects.
+- If a selected shape reference is attached, use it only as a shape guide for the selected tooth, not as an image to paste into the photograph.
+- The requested structural change must be visibly apparent if specified; do not substitute whitening or gloss for a shape/alignment correction.
+
+KIMI EDITING INSTRUCTIONS:
+${String(toothReport?.visualization_instructions || "").trim() || "Make only the explicit requested tooth change supported by the visible photograph."}
+
+${customPrompt ? `ADDITIONAL USER INSTRUCTIONS FOR FDI ${tooth} ONLY:
+${customPrompt.slice(0, 1200)}` : ""}
+
+OUTPUT: One complete edited photograph only, full frame. No text, annotations, borders, labels, or crop inset.
+`;
+            console.log("Full-frame edit input:", {
+                width: originalMetadata.width,
+                height: originalMetadata.height,
+                tooth,
+                mode: "full-image-edit-no-compositing"
             });
 
-            // 3. MAI edits only the isolated crop.
-            const prompt = buildToothVisualizationPrompt(
-                target,
-                toothReport
+            // 3. MAI edits the full original photograph directly. No crop is pasted back.
+            const basePrompt = fullImagePrompt;
+            const referenceGuidance = buildReferenceGuidance(
+                fdiReference,
+                customPrompt
             );
+            const selectedShapeGuidance = selectedShapeVariant
+                ? `\n\nUSER-SELECTED SHAPE VARIANT — REQUIRED\n` +
+                  `Variant ID: ${selectedShapeVariant.id}\n` +
+                  `Variant name: ${selectedShapeVariant.label || selectedShapeVariant.name || selectedShapeVariant.id}\n` +
+                  `Variant description: ${selectedShapeVariant.description || selectedShapeVariant.notes || "Match the reference image's visible crown silhouette and proportions."}\n` +
+                  `The first image is the patient's full photograph. The selected FDI reference image is a shape guide, not a replacement tooth or a request to copy its color/texture. Change ONLY the selected patient's tooth to resemble this chosen crown outline/proportion while preserving patient-specific lighting, texture, perspective, gumline, and neighboring teeth. Structural shape must visibly change; whitening alone is not acceptable.`
+                : "";
+            const prompt = `${basePrompt}\n\nFDI REFERENCE LIBRARY GUIDANCE:\n${referenceGuidance}${selectedShapeGuidance}`;
 
+            // Resolve every library asset relative to the library directory, not
+            // process.cwd(). The helper returns absolute paths for reference_images;
+            // shape_variants are also supported here for the newer metadata schema.
+            const fdiLibraryDirectory = path.join(__dirname, "data", "fdi-tooth-library");
+            const imageAvailable = Boolean(
+                fdiReference.hasUsableReferenceImage ||
+                Object.values(fdiReference.reference_images || {}).some(Boolean) ||
+                (Array.isArray(fdiReference.shape_variants) && fdiReference.shape_variants.some((variant) => Boolean(variant?.image)))
+            );
+            console.log("FDI reference record:", {
+                fdi: fdiReference.fdi,
+                toothType: fdiReference.tooth_type,
+                imageAvailable,
+                referenceImageCount: Object.values(fdiReference.reference_images || {}).filter(Boolean).length,
+                shapeVariantCount: Array.isArray(fdiReference.shape_variants) ? fdiReference.shape_variants.length : 0,
+                assetStatus: fdiReference.asset_status || "unknown"
+            });
+            if (!imageAvailable) {
+                console.warn(`No FDI ${tooth} reference image is populated yet; using structured metadata guidance only.`);
+            }
+            console.log("Custom tooth instructions provided:", Boolean(customPrompt));
+
+            // Load standard reference views and shape-variant images. All paths are
+            // resolved safely against the library folder. Missing assets are skipped.
+            const referenceAssets = [];
+            for (const [view, imagePath] of Object.entries(fdiReference.reference_images || {})) {
+                if (imagePath) referenceAssets.push({ label: view, imagePath });
+            }
+            // Attach only the chosen shape variant, never every variant at once.
+            // Multiple competing silhouettes can confuse the image-edit model.
+            if (selectedShapeVariant?.image) {
+                referenceAssets.push({
+                    label: `selected-variant-${selectedShapeVariant.id}`,
+                    imagePath: selectedShapeVariant.image,
+                    variantLabel: selectedShapeVariant.label || selectedShapeVariant.id
+                });
+            }
+
+            const fdiReferenceImages = [];
+            const seenReferencePaths = new Set();
+            for (const asset of referenceAssets) {
+                const rawPath = String(asset.imagePath || "").trim();
+                if (!rawPath) continue;
+
+                // Try the helper-resolved path first, then known relative-path layouts.
+                const candidatePaths = path.isAbsolute(rawPath)
+                    ? [rawPath]
+                    : [
+                        path.resolve(fdiLibraryDirectory, rawPath),
+                        path.resolve(fdiLibraryDirectory, "..", rawPath)
+                    ];
+                const resolvedPath = candidatePaths.find((candidate) =>
+                    fs.existsSync(candidate) && fs.statSync(candidate).isFile()
+                );
+                if (!resolvedPath) {
+                    console.warn(`FDI ${tooth} reference image not found (${asset.label}): ${rawPath}`);
+                    continue;
+                }
+                if (seenReferencePaths.has(resolvedPath)) continue;
+                seenReferencePaths.add(resolvedPath);
+
+                try {
+                    const referenceBuffer = await fs.promises.readFile(resolvedPath);
+                    const imageMetadata = await sharp(referenceBuffer).metadata();
+                    if (!imageMetadata.width || !imageMetadata.height ||
+                        !["jpeg", "png", "webp"].includes(imageMetadata.format)) {
+                        console.warn(`Skipping invalid FDI ${tooth} ${asset.label} reference image: ${resolvedPath}`);
+                        continue;
+                    }
+                    const mimeType = imageMetadata.format === "jpeg"
+                        ? "image/jpeg"
+                        : `image/${imageMetadata.format}`;
+                    const safeLabel = String(asset.label).replace(/[^a-z0-9_-]/gi, "-");
+                    fdiReferenceImages.push({
+                        buffer: referenceBuffer,
+                        mimeType,
+                        filename: `fdi-${tooth}-${safeLabel}.${imageMetadata.format}`
+                    });
+                    console.log(`Loaded FDI ${tooth} reference image: ${resolvedPath}`);
+                } catch (referenceImageError) {
+                    console.warn(`Unable to load FDI ${tooth} ${asset.label} reference image:`, referenceImageError.message);
+                }
+            }
+
+            if (selectedShapeVariant) {
+                const selectedReferenceLoaded = fdiReferenceImages.some((item) =>
+                    item.filename.includes(`selected-variant-${selectedShapeVariant.id}`)
+                );
+                if (!selectedReferenceLoaded) {
+                    return res.status(422).json({
+                        success: false,
+                        code: "SHAPE_REFERENCE_MISSING",
+                        error: `The image for selected shape “${selectedShapeVariant.label || selectedShapeVariant.id}” is missing or invalid. Check the FDI library image path and restart the server.`
+                    });
+                }
+            }
+            console.log("Selected shape variant:", selectedShapeVariant ? `${selectedShapeVariant.id} (${selectedShapeVariant.label || selectedShapeVariant.id})` : "none");
+            console.log("FDI reference images attached:", fdiReferenceImages.map((item) => item.filename));
+
+            const originalImageMimeType = req.file.mimetype || "image/jpeg";
             const imageResult =
                 await generateToothVisualization(
-                    cropInfo.buffer,
-                    "image/jpeg",
-                    prompt
+                    req.file.buffer,
+                    originalImageMimeType,
+                    prompt,
+                    fdiReferenceImages
                 );
 
             const generatedImage =
@@ -3220,25 +4164,28 @@ app.post(
             const generatedCropBuffer =
                 await generatedImageToBuffer(generatedImage);
 
-            // 5. Composite ONLY the Kimi-localized tooth region back onto
-            //    the ORIGINAL photograph. Everything else remains original.
-            const finalBuffer =
-                await compositeIsolatedToothOntoOriginal(
-                    req.file.buffer,
-                    generatedCropBuffer,
-                    cropInfo
-                );
+            // QA the full-frame result and return it directly. No crop compositing
+            // or geometric mask is used, so no rectangular crop boundary is pasted in.
+            const visualQa = await validateSelectedToothEdit(
+                req.file.buffer,
+                generatedCropBuffer,
+                validatedTarget,
+                toothReport
+            );
 
-            const finalImage =
-                "data:image/jpeg;base64," +
-                finalBuffer.toString("base64");
+            const finalImageMetadata = await sharp(generatedCropBuffer).metadata();
+            if (!finalImageMetadata.width || !finalImageMetadata.height) {
+                throw new Error("The image-editing model returned an invalid full-frame image.");
+            }
+            const finalBuffer = await sharp(generatedCropBuffer).jpeg({ quality: 98 }).toBuffer();
+            const finalImage = "data:image/jpeg;base64," + finalBuffer.toString("base64");
 
-            console.log("Isolated tooth visualization complete.");
-            console.log("Only the selected FDI region was composited onto the original image.");
+            console.log("Selected-tooth visualization complete (full-frame AI edit; no crop compositing).");
 
             return res.json({
                 success: true,
                 tooth,
+                visualQa,
                 generatedImage: finalImage,
                 referenceImage:
                     "data:image/jpeg;base64," +
@@ -3250,6 +4197,15 @@ app.post(
                 "Selected tooth visualization error:",
                 error.response?.data || error.message
             );
+
+            if (error.code === "TOOTH_EDIT_QA_FAILED") {
+                return res.status(422).json({
+                    success: false,
+                    code: error.code,
+                    error: error.message,
+                    retryable: true
+                });
+            }
 
             return res.status(500).json({
                 success: false,
@@ -3269,6 +4225,7 @@ app.post(
 app.post(
     "/api/tooth-mask",
     upload.single("image"),
+    validateUploadedImage,
     async (req, res) => {
         try {
             if (!req.file) {
@@ -3730,6 +4687,7 @@ app.post(
     ],
 
     upload.single("image"),
+    validateUploadedImage,
 
 
 
@@ -3741,23 +4699,24 @@ app.post(
 
 
 
-            if (!req.file) {
+            const isRefinement = String(req.body.refine || "").toLowerCase() === "true";
+            let imageBuffer = req.file?.buffer || null;
+            let imageMimeType = req.file?.mimetype || null;
 
+            if (isRefinement && !imageBuffer) {
+                const currentImage = await getRefinementImageBuffer(req.body.currentImage);
+                imageBuffer = currentImage.buffer;
+                imageMimeType = currentImage.mimeType;
+            }
 
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    error:
-
-                        "Please upload the original smile photograph."
-
-                });
-
-
-
-            }
+            if (!imageBuffer) {
+                return res.status(400).json({
+                    success: false,
+                    error: isRefinement
+                        ? "Please provide the current visualization to refine."
+                        : "Please upload the original smile photograph."
+                });
+            }
 
 
 
@@ -3897,27 +4856,27 @@ app.post(
 
 
 
-            const imagePrompt =
+            const customPrompt = String(req.body.customPrompt || "").trim();
+            if (customPrompt.length > 1200) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Custom instructions must be 1,200 characters or fewer."
+                });
+            }
+            if (isRefinement && !customPrompt) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Please enter a custom instruction for the refinement."
+                });
+            }
 
-                buildImagePrompt(
-
-                    report
-
-                );
+            const imagePrompt = buildImagePrompt(report, customPrompt);
 
 
 
             const imageResult =
 
-                await generateSmile(
-
-                    req.file.buffer,
-
-                    req.file.mimetype,
-
-                    imagePrompt
-
-                );
+                await generateSmile(imageBuffer, imageMimeType, imagePrompt);
 
 
 
@@ -4066,6 +5025,7 @@ app.post(
     "/api/simulate",
 
     upload.single("image"),
+    validateUploadedImage,
 
 
 
@@ -4417,6 +5377,69 @@ app.use(
 
 );
 
+
+
+// ============================================================
+// FDI SHAPE VARIANT PREVIEW API (additive; existing routes unchanged)
+// Returns thumbnails as data URLs so the existing public app can show the
+// actual reference-library images without exposing the library directory.
+// ============================================================
+
+app.get("/api/tooth-shape-variants/:tooth", async (req, res) => {
+    const tooth = String(req.params.tooth || "").trim();
+    if (!VALID_FDI_TEETH.has(tooth)) {
+        return res.status(400).json({ success: false, error: "A valid FDI tooth number is required." });
+    }
+
+    try {
+        const record = getToothReference(tooth);
+        const variants = Array.isArray(record?.shape_variants) ? record.shape_variants : [];
+        if (!variants.length) {
+            return res.status(404).json({ success: false, code: "NO_SHAPE_VARIANTS", variants: [] });
+        }
+
+        const libraryRoot = path.resolve(__dirname, "data", "fdi-tooth-library");
+        const output = [];
+        for (const variant of variants) {
+            const rawImagePath = variant?.image || variant?.image_path || variant?.path || "";
+            let imageDataUrl = null;
+            if (rawImagePath) {
+                const candidates = [
+                    path.isAbsolute(rawImagePath) ? rawImagePath : path.resolve(libraryRoot, rawImagePath),
+                    path.resolve(libraryRoot, "assets", tooth, "variants", `${variant.id}-front.png`),
+                    path.resolve(libraryRoot, "assets", tooth, `${variant.id}-front.png`),
+                    path.resolve(libraryRoot, "assets", tooth, `${variant.id}.png`),
+                    path.resolve(libraryRoot, "assets", tooth, `${variant.id}.png.png`)
+                ];
+                for (const candidate of candidates) {
+                    const absolute = path.resolve(candidate);
+                    if (!(absolute === libraryRoot || absolute.startsWith(libraryRoot + path.sep))) continue;
+                    try {
+                        const buffer = await fs.promises.readFile(absolute);
+                        const metadata = await sharp(buffer).metadata();
+                        if (!metadata.width || !metadata.height || !["png", "jpeg", "webp"].includes(metadata.format)) continue;
+                        const mime = metadata.format === "jpeg" ? "image/jpeg" : `image/${metadata.format}`;
+                        imageDataUrl = `data:${mime};base64,${buffer.toString("base64")}`;
+                        break;
+                    } catch (_) {
+                        // Try the next supported filename/path convention.
+                    }
+                }
+            }
+            output.push({
+                id: String(variant?.id || ""),
+                label: String(variant?.label || variant?.name || variant?.id || "Shape variant"),
+                description: String(variant?.description || variant?.notes || ""),
+                image: imageDataUrl
+            });
+        }
+
+        return res.json({ success: true, tooth, variants: output });
+    } catch (error) {
+        console.error("FDI shape variant preview error:", error);
+        return res.status(500).json({ success: false, error: "Unable to load shape variants from the FDI reference library." });
+    }
+});
 
 
 // ============================================================

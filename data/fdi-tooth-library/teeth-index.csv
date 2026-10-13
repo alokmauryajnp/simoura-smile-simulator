@@ -1,0 +1,33 @@
+fdi,universal_name,tooth_type,arch,side,position_from_midline,asset_status,review_status
+11,Upper-Right Central incisor,central_incisor,upper,right,1,missing,placeholder
+12,Upper-Right Lateral incisor,lateral_incisor,upper,right,2,missing,placeholder
+13,Upper-Right Canine,canine,upper,right,3,missing,placeholder
+14,Upper-Right First premolar,first_premolar,upper,right,4,missing,placeholder
+15,Upper-Right Second premolar,second_premolar,upper,right,5,missing,placeholder
+16,Upper-Right First molar,first_molar,upper,right,6,missing,placeholder
+17,Upper-Right Second molar,second_molar,upper,right,7,missing,placeholder
+18,Upper-Right Third molar,third_molar,upper,right,8,missing,placeholder
+21,Upper-Left Central incisor,central_incisor,upper,left,1,missing,placeholder
+22,Upper-Left Lateral incisor,lateral_incisor,upper,left,2,missing,placeholder
+23,Upper-Left Canine,canine,upper,left,3,missing,placeholder
+24,Upper-Left First premolar,first_premolar,upper,left,4,missing,placeholder
+25,Upper-Left Second premolar,second_premolar,upper,left,5,missing,placeholder
+26,Upper-Left First molar,first_molar,upper,left,6,missing,placeholder
+27,Upper-Left Second molar,second_molar,upper,left,7,missing,placeholder
+28,Upper-Left Third molar,third_molar,upper,left,8,missing,placeholder
+31,Lower-Left Central incisor,central_incisor,lower,left,1,missing,placeholder
+32,Lower-Left Lateral incisor,lateral_incisor,lower,left,2,missing,placeholder
+33,Lower-Left Canine,canine,lower,left,3,missing,placeholder
+34,Lower-Left First premolar,first_premolar,lower,left,4,missing,placeholder
+35,Lower-Left Second premolar,second_premolar,lower,left,5,missing,placeholder
+36,Lower-Left First molar,first_molar,lower,left,6,missing,placeholder
+37,Lower-Left Second molar,second_molar,lower,left,7,missing,placeholder
+38,Lower-Left Third molar,third_molar,lower,left,8,missing,placeholder
+41,Lower-Right Central incisor,central_incisor,lower,right,1,missing,placeholder
+42,Lower-Right Lateral incisor,lateral_incisor,lower,right,2,missing,placeholder
+43,Lower-Right Canine,canine,lower,right,3,missing,placeholder
+44,Lower-Right First premolar,first_premolar,lower,right,4,missing,placeholder
+45,Lower-Right Second premolar,second_premolar,lower,right,5,missing,placeholder
+46,Lower-Right First molar,first_molar,lower,right,6,missing,placeholder
+47,Lower-Right Second molar,second_molar,lower,right,7,missing,placeholder
+48,Lower-Right Third molar,third_molar,lower,right,8,missing,placeholder

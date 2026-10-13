@@ -14,6 +14,170 @@
 
     let generatedImageUrl = null;
 
+    // Custom refinement state for the full-smile visualization.
+    let refinementCount = 0;
+    let refinementBusy = false;
+    let refinementPromptPanel = null;
+    let refinementPromptInput = null;
+    let refineSmileBtn = null;
+    let refinementStatus = null;
+
+    function ensureSmileRefinementUI() {
+        if (!resultSection || refinementPromptPanel?.isConnected) return;
+
+        refinementPromptPanel = document.createElement("section");
+        refinementPromptPanel.id = "simouraSmileRefinementPanel";
+        refinementPromptPanel.style.cssText = [
+            "margin-top:24px",
+            "padding:24px",
+            "border:1px solid #d8e6e0",
+            "border-radius:16px",
+            "background:#ffffff",
+            "box-sizing:border-box"
+        ].join(";");
+
+        const heading = document.createElement("h3");
+        heading.textContent = "Customize Your Smile";
+        heading.style.cssText = "margin:0 0 8px;color:#164b43;font-size:24px;";
+        const description = document.createElement("p");
+        description.textContent = "Describe what you would like to adjust in this visualization. You can refine it more than once.";
+        description.style.cssText = "margin:0 0 16px;color:#526a65;line-height:1.55;";
+
+        refinementPromptInput = document.createElement("textarea");
+        refinementPromptInput.id = "simouraSmileCustomPrompt";
+        refinementPromptInput.maxLength = 1200;
+        refinementPromptInput.rows = 4;
+        refinementPromptInput.placeholder = "Example: Make the two upper front teeth slightly wider and whiten all visible teeth by one natural shade.";
+        refinementPromptInput.setAttribute("aria-label", "Custom smile refinement instructions");
+        refinementPromptInput.style.cssText = "display:block;width:100%;min-height:110px;box-sizing:border-box;padding:14px;border:1px solid #cbded8;border-radius:10px;font:inherit;line-height:1.5;resize:vertical;background:#fff;color:#183b35;";
+
+        const helper = document.createElement("p");
+        helper.textContent = "Be specific. Changes are AI-generated visual suggestions and may not match clinically achievable results.";
+        helper.style.cssText = "margin:8px 0 14px;color:#6b7d78;font-size:13px;line-height:1.5;";
+
+        const suggestions = document.createElement("div");
+        suggestions.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;";
+        const promptSuggestions = [
+            "Whiten the visible teeth by one natural shade",
+            "Make the two upper front teeth slightly wider",
+            "Make the overall smile appear a little wider",
+            "Keep the changes subtle and natural"
+        ];
+        promptSuggestions.forEach(text => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.textContent = text;
+            chip.style.cssText = "border:1px solid #cbded8;border-radius:999px;padding:8px 12px;background:#f5faf7;color:#24584e;font:inherit;font-size:13px;cursor:pointer;";
+            chip.addEventListener("click", () => {
+                if (!refinementPromptInput) return;
+                refinementPromptInput.value = text;
+                refinementPromptInput.focus();
+            });
+            suggestions.appendChild(chip);
+        });
+
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;align-items:center;flex-wrap:wrap;gap:12px;";
+        refineSmileBtn = document.createElement("button");
+        refineSmileBtn.type = "button";
+        refineSmileBtn.textContent = "Apply Changes";
+        refineSmileBtn.style.cssText = "border:0;border-radius:8px;padding:12px 20px;background:#164b43;color:#fff;font:inherit;font-weight:600;cursor:pointer;";
+        refineSmileBtn.addEventListener("click", refineSmileVisualization);
+
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.textContent = "Clear prompt";
+        clearBtn.style.cssText = "border:1px solid #cbded8;border-radius:8px;padding:11px 16px;background:#fff;color:#24584e;font:inherit;cursor:pointer;";
+        clearBtn.addEventListener("click", () => {
+            if (refinementPromptInput) refinementPromptInput.value = "";
+        });
+
+        refinementStatus = document.createElement("p");
+        refinementStatus.setAttribute("role", "status");
+        refinementStatus.setAttribute("aria-live", "polite");
+        refinementStatus.style.cssText = "display:none;margin:14px 0 0;color:#526a65;line-height:1.5;";
+
+        actions.append(refineSmileBtn, clearBtn);
+        refinementPromptPanel.append(heading, description, refinementPromptInput, helper, suggestions, actions, refinementStatus);
+        resultSection.appendChild(refinementPromptPanel);
+    }
+
+    function setRefinementStatus(message, isError = false) {
+        if (!refinementStatus) return;
+        refinementStatus.textContent = message;
+        refinementStatus.style.display = message ? "block" : "none";
+        refinementStatus.style.color = isError ? "#a12b2b" : "#526a65";
+    }
+
+    async function refineSmileVisualization() {
+        if (refinementBusy) return;
+        const customPrompt = String(refinementPromptInput?.value || "").trim();
+        if (!customPrompt) {
+            setRefinementStatus("Please describe the change you want first.", true);
+            refinementPromptInput?.focus();
+            return;
+        }
+        if (customPrompt.length > 1200) {
+            setRefinementStatus("Please keep your instruction under 1,200 characters.", true);
+            return;
+        }
+        if (!generatedImageUrl) {
+            setRefinementStatus("Generate a smile visualization before customizing it.", true);
+            return;
+        }
+
+        refinementBusy = true;
+        refineSmileBtn.disabled = true;
+        refineSmileBtn.textContent = "Applying Changes…";
+        setRefinementStatus("Applying your instructions to the current visualization. This may take a little while.");
+        statusText.textContent = "Refining smile visualization";
+        generationProgress.classList.add("visible");
+        generationProgress.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        try {
+            const formData = new FormData();
+            formData.append("currentImage", generatedImageUrl);
+            formData.append("report", JSON.stringify(analysisReport || {}));
+            formData.append("customPrompt", customPrompt);
+            formData.append("refine", "true");
+
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                body: formData
+            });
+            const responseText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                throw new Error("The server returned an invalid response while refining the image.");
+            }
+            if (!response.ok || !data.success || !data.generatedImage) {
+                throw new Error(data.error || "Unable to refine the smile visualization.");
+            }
+
+            generatedImageUrl = data.generatedImage;
+            afterImage.src = generatedImageUrl;
+            refinementCount += 1;
+            refinementPromptInput.value = "";
+            setRefinementStatus(`Updated visualization ready${refinementCount > 1 ? ` (refinement ${refinementCount})` : ""}. You can enter another instruction to refine it again.`);
+            statusText.textContent = "Visualization updated";
+            resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (error) {
+            console.error("SMILE REFINEMENT ERROR:", error);
+            setRefinementStatus(error.message || "Unable to refine the smile visualization.", true);
+            statusText.textContent = "Refinement failed";
+        } finally {
+            generationProgress.classList.remove("visible");
+            refinementBusy = false;
+            if (refineSmileBtn) {
+                refineSmileBtn.disabled = false;
+                refineSmileBtn.textContent = "Apply Changes";
+            }
+        }
+    }
+
+
 
     /* =========================================================
        ELEMENTS
@@ -244,6 +408,14 @@
 
     let selectedToothReport = null;
     let selectedToothTarget = null;
+
+    // Additive shape-variant selection state. Existing tooth-selection and
+    // analysis state remain unchanged.
+    let selectedShapeVariantId = "";
+    let shapeVariantRequestToken = 0;
+    let toothShapeVariantGrid = null;
+    let toothShapeVariantStatus = null;
+
 
     // Precise workflow state is intentionally separate from the
     // normal full-smile analysis report.
@@ -548,6 +720,10 @@
         analysisReport = null;
 
         generatedImageUrl = null;
+        refinementCount = 0;
+        if (refinementPromptInput) refinementPromptInput.value = "";
+        setRefinementStatus("");
+
 
         resetToothMaskUI();
 
@@ -1130,6 +1306,67 @@
         analysisPanel.appendChild(analysisHeading);
         if (toothAnalysisStatus) analysisPanel.appendChild(toothAnalysisStatus);
         if (toothAnalysisReport) analysisPanel.appendChild(toothAnalysisReport);
+
+        // Shape selection is additive: it sits inside the existing selected-tooth
+        // analysis panel and does not replace any existing controls.
+        const shapeVariantPanel = document.createElement("section");
+        shapeVariantPanel.id = "toothShapeVariantPanel";
+        shapeVariantPanel.style.cssText = "display:none;width:100%;margin:22px 0 0;padding:18px;border:1px solid #d8e6e0;border-radius:12px;background:#f8fbf9;box-sizing:border-box;";
+
+        const shapeVariantHeading = document.createElement("h4");
+        shapeVariantHeading.textContent = "Choose Tooth Shape";
+        shapeVariantHeading.style.cssText = "margin:0 0 6px;color:#164b43;font-size:18px;";
+
+        const shapeVariantHelp = document.createElement("p");
+        shapeVariantHelp.textContent = "Choose a reference shape for this tooth. Only variants configured in the FDI reference library will appear here.";
+        shapeVariantHelp.style.cssText = "margin:0 0 12px;color:#60736d;font-size:13px;line-height:1.5;";
+
+        toothShapeVariantStatus = document.createElement("p");
+        toothShapeVariantStatus.id = "toothShapeVariantStatus";
+        toothShapeVariantStatus.setAttribute("role", "status");
+        toothShapeVariantStatus.style.cssText = "margin:0 0 12px;color:#60736d;font-size:13px;line-height:1.5;";
+
+        toothShapeVariantGrid = document.createElement("div");
+        toothShapeVariantGrid.id = "toothShapeVariantGrid";
+        toothShapeVariantGrid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;";
+
+        shapeVariantPanel.append(shapeVariantHeading, shapeVariantHelp, toothShapeVariantStatus, toothShapeVariantGrid);
+
+        // Optional user instructions for the selected-tooth visualization.
+        // These supplement Kimi's assessment and must remain limited to this tooth.
+        const customPromptGroup = document.createElement("div");
+        customPromptGroup.id = "preciseToothCustomPromptGroup";
+        customPromptGroup.style.cssText = "width:100%;margin-top:22px;box-sizing:border-box;";
+
+        const customPromptLabel = document.createElement("label");
+        customPromptLabel.htmlFor = "preciseToothCustomPrompt";
+        customPromptLabel.textContent = "Custom Instructions for This Tooth (Optional)";
+        customPromptLabel.style.cssText = "display:block;margin:0 0 8px;color:#164b43;font-weight:600;line-height:1.4;";
+
+        const customPromptHelp = document.createElement("p");
+        customPromptHelp.textContent = "Describe the specific change you want for the selected tooth, such as its shape, width, length, alignment, or shade. Keep instructions limited to this tooth.";
+        customPromptHelp.style.cssText = "margin:0 0 10px;color:#60736d;font-size:13px;line-height:1.5;";
+
+        const preciseToothCustomPrompt = document.createElement("textarea");
+        preciseToothCustomPrompt.id = "preciseToothCustomPrompt";
+        preciseToothCustomPrompt.maxLength = 1200;
+        preciseToothCustomPrompt.rows = 4;
+        preciseToothCustomPrompt.placeholder = "Example: Make this tooth slightly narrower and more naturally aligned with its neighbor. Preserve its natural texture and do not change other teeth.";
+        preciseToothCustomPrompt.setAttribute("aria-label", "Custom instructions for selected-tooth visualization");
+        preciseToothCustomPrompt.style.cssText = "display:block;width:100%;min-height:105px;box-sizing:border-box;padding:13px;border:1px solid #cbded8;border-radius:10px;background:#fff;color:#183b35;font:inherit;line-height:1.5;resize:vertical;";
+
+        const preciseToothPromptCounter = document.createElement("p");
+        preciseToothPromptCounter.id = "preciseToothCustomPromptCount";
+        preciseToothPromptCounter.textContent = "0 / 1200 characters";
+        preciseToothPromptCounter.style.cssText = "margin:6px 0 0;text-align:right;color:#71817c;font-size:12px;";
+        preciseToothCustomPrompt.addEventListener("input", () => {
+            preciseToothPromptCounter.textContent = `${preciseToothCustomPrompt.value.length} / 1200 characters`;
+        });
+
+        customPromptGroup.append(customPromptLabel, customPromptHelp, preciseToothCustomPrompt, preciseToothPromptCounter);
+        analysisPanel.appendChild(shapeVariantPanel);
+        analysisPanel.appendChild(customPromptGroup);
+
         if (visualizeToothBtn) {
             visualizeToothBtn.style.marginTop = "18px";
             analysisPanel.appendChild(visualizeToothBtn);
@@ -1259,7 +1496,27 @@
         panel.style.display = "block";
         preciseFdiMarkerLayer.replaceChildren();
 
-        preciseToothTargets.forEach(target => {
+        // Only display clickable FDI markers when Kimi's normalized
+        // confidence is strictly greater than 75% (backend scale: 0 to 1).
+        const highConfidenceTargets = preciseToothTargets.filter(target => {
+            const confidence = Number(target?.confidence);
+            return Number.isFinite(confidence) && confidence > 0.75;
+        });
+
+        preciseFdiMarkerLayer.replaceChildren();
+
+        if (!highConfidenceTargets.length) {
+            const notice = document.createElement("p");
+            notice.textContent = "No teeth exceeded the 75% confidence threshold. Use the dropdown below if you want to inspect other detected teeth.";
+            notice.style.cssText = "position:relative;z-index:4;margin:12px;padding:12px 14px;border-radius:10px;background:#fff7e6;color:#7a4b00;font-size:14px;line-height:1.4;text-align:center;";
+            preciseFdiMarkerLayer.style.pointerEvents = "none";
+            panel.style.display = "block";
+            // Keep the notice in the marker layer without adding any FDI labels.
+            preciseFdiMarkerLayer.appendChild(notice);
+            return;
+        }
+
+        highConfidenceTargets.forEach(target => {
             const x = Number(target?.center?.x);
             const y = Number(target?.center?.y);
             const width = Number(preciseFdiImage.naturalWidth || previewImage.naturalWidth);
@@ -1371,6 +1628,7 @@
         preciseLocalizationReady = false;
         selectedToothReport = null;
         selectedToothTarget = null;
+        resetToothShapeVariantSelection();
 
         toothSelect.innerHTML =
             "<option value=\"\">Start precise analysis first</option>";
@@ -1493,8 +1751,12 @@
             renderPreciseFdiPhotoMarkers();
 
             if (preciseLocalizationReady) {
+                const highConfidenceCount = preciseToothTargets.filter(target => {
+                    const confidence = Number(target?.confidence);
+                    return Number.isFinite(confidence) && confidence > 0.75;
+                }).length;
                 preciseLocalizationStatus.textContent =
-                    `${preciseToothTargets.length} Kimi-approved analyzable tooth${preciseToothTargets.length === 1 ? "" : "s"} found. Click an FDI marker on the photo or select a tooth below.`;
+                    `${preciseToothTargets.length} analyzable teeth found. ${highConfidenceCount} tooth${highConfidenceCount === 1 ? "" : "s"} exceeded 75% confidence and will show clickable FDI markers. The dropdown still lists all analyzable teeth.`;
                 statusText.textContent = "Precise tooth analysis ready";
             } else {
                 preciseLocalizationStatus.textContent =
@@ -1526,6 +1788,7 @@
         () => {
             selectedToothReport = null;
             selectedToothTarget = null;
+            resetToothShapeVariantSelection();
             visualizeToothBtn.disabled = true;
             toothMaskResult.classList.remove("visible");
             clearToothReferenceArea();
@@ -1534,6 +1797,12 @@
             toothAnalysisStatus.textContent = "";
             toothAnalysisReport.textContent = "";
             toothMaskStatus.textContent = "";
+            const customPromptInput = document.getElementById("preciseToothCustomPrompt");
+            if (customPromptInput) {
+                customPromptInput.value = "";
+                const promptCounter = document.getElementById("preciseToothCustomPromptCount");
+                if (promptCounter) promptCounter.textContent = "0 / 1200 characters";
+            }
             updateSelectedToothMeta();
             updatePreciseFdiMarkerStyles();
         }
@@ -1981,6 +2250,10 @@
 
             selectedToothTarget = data.target;
             selectedToothReport = data.toothReport;
+            resetToothShapeVariantSelection();
+            // Optional FDI shape variants appear only when the library has
+            // configured references for the currently analyzed tooth.
+            void loadToothShapeVariants(data.tooth);
 
             toothAnalysisStatus.textContent =
                 `Tooth ${data.tooth} independently verified by Kimi.\n` +
@@ -2024,6 +2297,113 @@
     );
 
 
+    async function loadToothShapeVariants(toothNumber) {
+        const panel = document.getElementById("toothShapeVariantPanel");
+        if (!panel || !toothShapeVariantGrid || !toothShapeVariantStatus) return;
+
+        const token = ++shapeVariantRequestToken;
+        selectedShapeVariantId = "";
+        panel.style.display = "block";
+        toothShapeVariantGrid.replaceChildren();
+        toothShapeVariantStatus.textContent = `Loading available shapes for tooth ${toothNumber}…`;
+
+        try {
+            const response = await fetch(`/api/tooth-shape-variants/${encodeURIComponent(String(toothNumber))}`);
+            const responseText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                throw new Error("The server returned an invalid shape-variant response.");
+            }
+
+            if (token !== shapeVariantRequestToken) return;
+
+            if (response.status === 404 || data.code === "NO_SHAPE_VARIANTS" ||
+                !Array.isArray(data.variants) || data.variants.length === 0) {
+                panel.style.display = "none";
+                toothShapeVariantStatus.textContent = "";
+                return;
+            }
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || "Unable to load tooth shape references.");
+            }
+
+            const variants = data.variants.filter(variant => variant && variant.id);
+            if (!variants.length) {
+                panel.style.display = "none";
+                return;
+            }
+
+            toothShapeVariantStatus.textContent = "Select one shape reference, or leave the selection unchanged to use the existing AI-generated approach.";
+
+            variants.forEach(variant => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.dataset.variantId = String(variant.id);
+                button.setAttribute("aria-pressed", "false");
+                button.style.cssText = "display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;padding:10px;border:2px solid #d8e6e0;border-radius:10px;background:#fff;color:#164b43;text-align:left;cursor:pointer;font:inherit;";
+
+                if (variant.image) {
+                    const image = document.createElement("img");
+                    image.src = variant.image;
+                    image.alt = `${variant.label || variant.id} tooth shape reference`;
+                    image.loading = "lazy";
+                    image.style.cssText = "display:block;width:100%;height:105px;object-fit:contain;border-radius:6px;background:#f0f6f3;";
+                    button.appendChild(image);
+                } else {
+                    const placeholder = document.createElement("div");
+                    placeholder.textContent = "Shape reference";
+                    placeholder.style.cssText = "display:flex;align-items:center;justify-content:center;width:100%;height:105px;border-radius:6px;background:#f0f6f3;color:#60736d;font-size:12px;";
+                    button.appendChild(placeholder);
+                }
+
+                const label = document.createElement("strong");
+                label.textContent = String(variant.label || variant.id).replace(/_/g, " ");
+                label.style.cssText = "font-size:14px;line-height:1.3;";
+                button.appendChild(label);
+
+                if (variant.description) {
+                    const description = document.createElement("span");
+                    description.textContent = variant.description;
+                    description.style.cssText = "font-size:12px;line-height:1.4;color:#60736d;";
+                    button.appendChild(description);
+                }
+
+                button.addEventListener("click", () => {
+                    selectedShapeVariantId = String(variant.id);
+                    toothShapeVariantGrid.querySelectorAll("button[data-variant-id]").forEach(item => {
+                        const selected = item.dataset.variantId === selectedShapeVariantId;
+                        item.setAttribute("aria-pressed", selected ? "true" : "false");
+                        item.style.borderColor = selected ? "#087f8c" : "#d8e6e0";
+                        item.style.background = selected ? "#eaf7f6" : "#fff";
+                    });
+                    toothShapeVariantStatus.textContent = `Selected shape: ${String(variant.label || variant.id).replace(/_/g, " ")}.`;
+                });
+
+                toothShapeVariantGrid.appendChild(button);
+            });
+        } catch (error) {
+            if (token !== shapeVariantRequestToken) return;
+            console.warn("TOOTH SHAPE VARIANTS:", error);
+            panel.style.display = "none";
+            toothShapeVariantStatus.textContent = "";
+            // The original tooth workflow remains usable if the optional
+            // shape-reference endpoint is not available.
+        }
+    }
+
+
+    function resetToothShapeVariantSelection() {
+        shapeVariantRequestToken += 1;
+        selectedShapeVariantId = "";
+        const panel = document.getElementById("toothShapeVariantPanel");
+        if (panel) panel.style.display = "none";
+        if (toothShapeVariantGrid) toothShapeVariantGrid.replaceChildren();
+        if (toothShapeVariantStatus) toothShapeVariantStatus.textContent = "";
+    }
+
+
     async function visualizeSelectedTooth() {
 
         if (!selectedFile) {
@@ -2050,9 +2430,17 @@
                 "payload",
                 JSON.stringify({
                     target: selectedToothTarget,
-                    toothReport: selectedToothReport
+                    toothReport: selectedToothReport,
+                    selectedVariantId: selectedShapeVariantId || ""
                 })
             );
+            const customPrompt = String(
+                document.getElementById("preciseToothCustomPrompt")?.value || ""
+            ).trim();
+            if (customPrompt.length > 1200) {
+                throw new Error("Please keep your selected-tooth instructions under 1,200 characters.");
+            }
+            formData.append("customPrompt", customPrompt);
 
             const response = await fetch(
                 "/api/tooth-visualize",
@@ -2723,6 +3111,10 @@
             resultSection.classList.add(
                 "visible"
             );
+
+            ensureSmileRefinementUI();
+            setRefinementStatus("");
+
 
 
             generationProgress.classList.remove(
