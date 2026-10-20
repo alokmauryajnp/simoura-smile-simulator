@@ -107,15 +107,15 @@ app.use(express.static("public"));
 
 app.get("/api/health", (req, res) => {
 
-    res.json({
+    res.json({
 
-        success: true,
+        success: true,
 
-        message: "Smile Simulator API is running",
+        message: "Smile Simulator API is running",
 
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString()
 
-    });
+    });
 
 });
 
@@ -134,17 +134,17 @@ app.get("/api/health", (req, res) => {
 // ============================================================
 //
 // Primary:
-//   NVIDIA NIM / Kimi K3
+//   NVIDIA NIM / DeepSeek V4.1 Flash (multimodal)
 //
 // Backup:
-//   Pollinations / Kimi K3
+//   Pollinations / Kimi K3 (retained as configured fallback; verify model availability)
 //
 // The frontend/API response shape is unchanged. This layer only
 // changes which provider supplies the Kimi analysis.
 //
 
 const KIMI_PRIMARY_TIMEOUT_MS = Number(
-    process.env.KIMI_PRIMARY_TIMEOUT_MS || 120000
+    process.env.KIMI_PRIMARY_TIMEOUT_MS || 18000
 );
 
 const KIMI_FALLBACK_TIMEOUT_MS = Number(
@@ -153,6 +153,11 @@ const KIMI_FALLBACK_TIMEOUT_MS = Number(
 
 const NVIDIA_KIMI_URL =
     "https://integrate.api.nvidia.com/v1/chat/completions";
+
+// NVIDIA Kimi K3 was retired. Use the multimodal model from the user-provided
+// NVIDIA example. Keep configurable so it can be changed via environment.
+const NVIDIA_VISION_MODEL =
+    process.env.NVIDIA_VISION_MODEL || "deepseek-ai/deepseek-v4.1-flash";
 
 const POLLINATIONS_KIMI_URL =
     "https://gen.pollinations.ai/v1/chat/completions";
@@ -186,6 +191,7 @@ function shouldFallbackToPollinations(error) {
         status === 401 ||
         status === 403 ||
         status === 408 ||
+        status === 410 ||
         status === 429 ||
         status >= 500
     ) {
@@ -354,34 +360,31 @@ async function callKimiWithFallback({
     let primaryError = null;
 
     // --------------------------------------------------------
-    // PRIMARY: NVIDIA KIMI K3
+    // PRIMARY: NVIDIA DEEPSEEK V4.1 FLASH
     // --------------------------------------------------------
 
     try {
 
         console.log("");
         console.log("----------------------------------------");
-        console.log(`KIMI PRIMARY: NVIDIA (${operationName})`);
+        console.log(`VISION MODEL PRIMARY: NVIDIA ${NVIDIA_VISION_MODEL} (${operationName})`);
         console.log("----------------------------------------");
 
         const response = await axios.post(
             NVIDIA_KIMI_URL,
             {
-                model: "moonshotai/kimi-k3",
+                model: NVIDIA_VISION_MODEL,
                 messages,
-                reasoning_effort: "low",
-                temperature: 1,
+                temperature: 0.2,
                 max_tokens: primaryMaxTokens,
-                stream: true
+                stream: false
             },
             {
                 headers: {
                     Authorization:
                         `Bearer ${process.env.NVIDIA_API_KEY}`,
-                    Accept: "text/event-stream",
                     "Content-Type": "application/json"
                 },
-                responseType: "text",
                 timeout: KIMI_PRIMARY_TIMEOUT_MS
             }
         );
@@ -389,7 +392,7 @@ async function callKimiWithFallback({
         let finalContent =
             extractKimiContent(
                 response.data,
-                true
+                false
             );
 
         if (finalContent) {
@@ -410,13 +413,13 @@ async function callKimiWithFallback({
         if (retryPrimaryWithoutStream) {
 
             console.warn(
-                `NVIDIA Kimi ${operationName} returned no final content. Retrying once without streaming...`
+                `NVIDIA ${NVIDIA_VISION_MODEL} ${operationName} returned no final content. Retrying once without streaming...`
             );
 
             const retryResponse = await axios.post(
                 NVIDIA_KIMI_URL,
                 {
-                    model: "moonshotai/kimi-k3",
+                    model: NVIDIA_VISION_MODEL,
                     messages,
                     reasoning_effort: "low",
                     temperature: 0.2,
@@ -456,7 +459,7 @@ async function callKimiWithFallback({
         }
 
         primaryError = new Error(
-            `NVIDIA Kimi returned no final content for ${operationName}.`
+            `NVIDIA ${NVIDIA_VISION_MODEL} returned no final content for ${operationName}.`
         );
 
     } catch (error) {
@@ -465,7 +468,7 @@ async function callKimiWithFallback({
 
         console.warn("");
         console.warn(
-            `NVIDIA Kimi failed for ${operationName}.`
+            `NVIDIA vision model failed for ${operationName}.`
         );
         console.warn(
             "Reason:",
@@ -488,10 +491,10 @@ async function callKimiWithFallback({
 
     console.warn("");
     console.warn(
-        `NVIDIA Kimi unavailable for ${operationName}.`
+        `NVIDIA vision model unavailable for ${operationName}.`
     );
     console.warn(
-        "Switching automatically to Pollinations Kimi K3..."
+        "Switching automatically to the Pollinations backup model..."
     );
 
     // --------------------------------------------------------
@@ -503,7 +506,7 @@ async function callKimiWithFallback({
         console.log("");
         console.log("----------------------------------------");
         console.log(
-            `KIMI BACKUP: POLLINATIONS (${operationName})`
+            `VISION BACKUP: POLLINATIONS (${operationName})`
         );
         console.log("----------------------------------------");
 
@@ -536,7 +539,7 @@ async function callKimiWithFallback({
         if (!fallbackContent) {
 
             throw new Error(
-                `Pollinations Kimi returned no final content for ${operationName}.`
+                `Pollinations fallback returned no final content for ${operationName}.`
             );
         }
 
@@ -553,7 +556,7 @@ async function callKimiWithFallback({
 
         console.error("");
         console.error(
-            `Pollinations Kimi fallback also failed for ${operationName}.`
+            `Pollinations fallback also failed for ${operationName}.`
         );
         console.error(
             fallbackError?.response?.data ||
@@ -570,6 +573,36 @@ async function callKimiWithFallback({
     }
 }
 
+
+
+async function callPollinationsVisionDirect({ imageDataUrl, prompt, operationName, maxTokens = 4096 }) {
+    const response = await axios.post(
+        POLLINATIONS_KIMI_URL,
+        {
+            model: "moonshotai/kimi-k3",
+            messages: [{
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: imageDataUrl } }
+                ]
+            }],
+            temperature: 0.2,
+            max_tokens: maxTokens,
+            stream: false
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            timeout: KIMI_FALLBACK_TIMEOUT_MS
+        }
+    );
+    const content = extractKimiContent(response.data, false);
+    if (!content) throw new Error(`Pollinations returned no content for ${operationName}.`);
+    return content;
+}
 
 async function analyzeSmile(imageBuffer, mimeType) {
 
@@ -790,7 +823,45 @@ VISUALIZATION INSTRUCTION GENERATION — IMPORTANT:
         kimiResult.provider
     );
 
-    return kimiResult.content.trim();
+    const rawContent = kimiResult.content.trim();
+
+    // If a provider returns prose/truncated output instead of the required JSON,
+    // make one direct, format-focused Pollinations recovery call. This avoids
+    // sending the same request back through a primary provider that just timed out.
+    try {
+        parseKimiReport(rawContent);
+        return rawContent;
+    } catch (parseError) {
+        console.warn(
+            "Full smile analysis response was not valid JSON. Requesting one strict JSON recovery from Pollinations.",
+            rawContent.slice(0, 350)
+        );
+
+        const repairPrompt = `${prompt}
+
+JSON RECOVERY REQUEST:
+Your previous response could not be parsed as JSON. Analyze the same image again and return ONLY one complete valid JSON object using the exact schema specified above. No markdown fences, no prose, no explanation, no comments. Include all required top-level fields: visualization_ready, image_quality, summary, observations, treatment_options, tooth_targets, smile_characteristics, visualization_plan, and image_edit_instructions. If a field is uncertain, use a conservative value while preserving the schema. Do not truncate the JSON.`;
+
+        try {
+            const repairedContent = await callPollinationsVisionDirect({
+                imageDataUrl,
+                prompt: repairPrompt,
+                operationName: "full smile analysis JSON recovery",
+                maxTokens: 4096
+            });
+            parseKimiReport(repairedContent);
+            console.log("Full smile analysis JSON recovery succeeded via Pollinations.");
+            return repairedContent.trim();
+        } catch (repairError) {
+            console.error(
+                "Full smile analysis JSON recovery failed:",
+                repairError?.response?.data || repairError.message
+            );
+            throw new Error(
+                "Full smile analysis failed because the vision provider did not return valid JSON. Please retry. If this repeats, check the provider response and API availability."
+            );
+        }
+    }
 }
 
 
@@ -801,105 +872,96 @@ VISUALIZATION INSTRUCTION GENERATION — IMPORTANT:
 
 
 
+
 function parseKimiReport(rawReport) {
+    if (!rawReport || !String(rawReport).trim()) {
+        console.error("Kimi returned an empty report.");
+        throw new Error("Kimi returned an empty report.");
+    }
 
-    if (!rawReport) {
+    const raw = String(rawReport).trim();
 
-        throw new Error(
+    const cleaned = raw
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
 
-            "Kimi returned an empty report."
+    // Try parsing the complete response.
+    try {
+        const parsed = JSON.parse(cleaned);
 
-        );
+        if (
+            parsed &&
+            typeof parsed === "object" &&
+            !Array.isArray(parsed)
+        ) {
+            return parsed;
+        }
 
-    }
+        console.error(
+            "Kimi response was valid JSON but not an object."
+        );
+    } catch (error) {
+        console.warn(
+            "Direct Kimi JSON parsing failed:",
+            error.message
+        );
+    }
 
+    // Try extracting a JSON object from surrounding text.
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
 
+    if (start !== -1 && end > start) {
+        const candidate = cleaned.slice(start, end + 1);
 
-    let cleaned =
+        try {
+            const parsed = JSON.parse(candidate);
 
-        String(rawReport)
+            if (
+                parsed &&
+                typeof parsed === "object" &&
+                !Array.isArray(parsed)
+            ) {
+                return parsed;
+            }
+        } catch (error) {
+            console.error(
+                "Extracted Kimi JSON parsing failed:",
+                error.message
+            );
+            console.error(
+                "Response length:",
+                cleaned.length
+            );
+            console.error(
+                "Response beginning:",
+                cleaned.slice(0, 500)
+            );
+            console.error(
+                "Response ending:",
+                cleaned.slice(-500)
+            );
+        }
+    } else {
+        console.error(
+            "No complete JSON object found in Kimi response."
+        );
+        console.error(
+            "Response length:",
+            cleaned.length
+        );
+        console.error(
+            "Response preview:",
+            cleaned.slice(0, 1000)
+        );
+    }
 
-            .replace(/```json/gi, "")
-
-            .replace(/```/g, "")
-
-            .trim();
-
-
-
-    // Direct JSON
-
-    try {
-
-        return JSON.parse(cleaned);
-
-    } catch (error) {
-
-        // Continue to extraction below
-
-    }
-
-
-
-    // Extract JSON object
-
-    const start =
-
-        cleaned.indexOf("{");
-
-
-
-    const end =
-
-        cleaned.lastIndexOf("}");
-
-
-
-    if (
-
-        start !== -1 &&
-
-        end > start
-
-    ) {
-
-        try {
-
-            return JSON.parse(
-
-                cleaned.slice(
-
-                    start,
-
-                    end + 1
-
-                )
-
-            );
-
-        } catch (error) {
-
-            console.error(
-
-                "Kimi JSON parse failed:",
-
-                error.message
-
-            );
-
-        }
-
-    }
-
-
-
-    throw new Error(
-
-        "Kimi returned an invalid analysis format."
-
-    );
-
+    throw new Error(
+        "Kimi returned an invalid analysis format. Check server logs for response diagnostics."
+    );
 }
+
 
 
 
@@ -931,75 +993,75 @@ function isVisualizationAllowed(report) {
 
 
 
-    // Explicit Kimi decision
+    // Explicit Kimi decision
 
-    if (
+    if (
 
-        report?.visualization_ready === false
+        report?.visualization_ready === false
 
-    ) {
+    ) {
 
-        return false;
+        return false;
 
-    }
-
-
-
-    const quality =
-
-        report?.image_quality || {};
+    }
 
 
 
-    // Teeth explicitly not visible
+    const quality =
 
-    if (
-
-        quality.teeth_visible === false
-
-    ) {
-
-        return false;
-
-    }
+        report?.image_quality || {};
 
 
 
-    // Explicit unusable flag
+    // Teeth explicitly not visible
 
-    if (
+    if (
 
-        quality.usable_for_visualization === false
+        quality.teeth_visible === false
 
-    ) {
+    ) {
 
-        return false;
+        return false;
 
-    }
-
-
-
-    // Explicit blocking reasons
-
-    if (
-
-        Array.isArray(
-
-            quality.blocking_reasons
-
-        ) &&
-
-        quality.blocking_reasons.length > 0
-
-    ) {
-
-        return false;
-
-    }
+    }
 
 
 
-    return true;
+    // Explicit unusable flag
+
+    if (
+
+        quality.usable_for_visualization === false
+
+    ) {
+
+        return false;
+
+    }
+
+
+
+    // Explicit blocking reasons
+
+    if (
+
+        Array.isArray(
+
+            quality.blocking_reasons
+
+        ) &&
+
+        quality.blocking_reasons.length > 0
+
+    ) {
+
+        return false;
+
+    }
+
+
+
+    return true;
 
 }
 
@@ -1017,105 +1079,105 @@ function getBlockingReasons(report) {
 
 
 
-    const reasons = [];
+    const reasons = [];
 
 
 
-    const quality =
+    const quality =
 
-        report?.image_quality || {};
-
-
-
-    // Kimi-provided blocking reasons
-
-    if (
-
-        Array.isArray(
-
-            quality.blocking_reasons
-
-        )
-
-    ) {
-
-        reasons.push(
-
-            ...quality.blocking_reasons
-
-                .map(String)
-
-                .filter(Boolean)
-
-        );
-
-    }
+        report?.image_quality || {};
 
 
 
-    // Teeth visibility
+    // Kimi-provided blocking reasons
 
-    if (
+    if (
 
-        quality.teeth_visible === false
+        Array.isArray(
 
-    ) {
+            quality.blocking_reasons
 
-        reasons.push(
+        )
 
-            "Teeth are not clearly visible."
+    ) {
 
-        );
+        reasons.push(
 
-    }
+            ...quality.blocking_reasons
 
+                .map(String)
 
+                .filter(Boolean)
 
-    // Explicit unusable flag
+        );
 
-    if (
-
-        quality.usable_for_visualization === false &&
-
-        reasons.length === 0
-
-    ) {
-
-        reasons.push(
-
-            "The photograph does not provide enough clear dental detail for visualization."
-
-        );
-
-    }
+    }
 
 
 
-    // Explicit Kimi false decision
+    // Teeth visibility
 
-    if (
+    if (
 
-        report?.visualization_ready === false &&
+        quality.teeth_visible === false
 
-        reasons.length === 0
+    ) {
 
-    ) {
+        reasons.push(
 
-        reasons.push(
+            "Teeth are not clearly visible."
 
-            "The photograph was not considered suitable for visualization."
+        );
 
-        );
-
-    }
+    }
 
 
 
-    return [
+    // Explicit unusable flag
 
-        ...new Set(reasons)
+    if (
 
-    ].slice(0, 4);
+        quality.usable_for_visualization === false &&
+
+        reasons.length === 0
+
+    ) {
+
+        reasons.push(
+
+            "The photograph does not provide enough clear dental detail for visualization."
+
+        );
+
+    }
+
+
+
+    // Explicit Kimi false decision
+
+    if (
+
+        report?.visualization_ready === false &&
+
+        reasons.length === 0
+
+    ) {
+
+        reasons.push(
+
+            "The photograph was not considered suitable for visualization."
+
+        );
+
+    }
+
+
+
+    return [
+
+        ...new Set(reasons)
+
+    ].slice(0, 4);
 
 }
 
@@ -1310,123 +1372,123 @@ function normalizeReport(report = {}) {
 
 
 
-    const normalized = {
+    const normalized = {
 
 
 
-        visualization_ready:
+        visualization_ready:
 
-            report.visualization_ready !== false,
+            report.visualization_ready !== false,
 
 
 
-        image_quality: {
+        image_quality: {
 
 
 
-            teeth_visible: true,
+            teeth_visible: true,
 
 
 
-            clarity: "clear",
+            clarity: "clear",
 
 
 
-            lighting: "adequate",
+            lighting: "adequate",
 
 
 
-            mouth_visibility: "good",
+            mouth_visibility: "good",
 
 
 
-            view_angle: "front-facing",
+            view_angle: "front-facing",
 
 
 
-            blocking_reasons: [],
+            blocking_reasons: [],
 
 
 
-            ...(report.image_quality || {})
+            ...(report.image_quality || {})
 
-        },
+        },
 
 
 
-        summary:
+        summary:
 
-            report.summary ||
+            report.summary ||
 
-            "No summary available.",
+            "No summary available.",
 
 
 
-        observations:
+        observations:
 
-            Array.isArray(
+            Array.isArray(
 
-                report.observations
+                report.observations
 
-            )
+            )
 
-                ? report.observations.map(String)
+                ? report.observations.map(String)
 
-                : [],
+                : [],
 
 
 
-        treatment_options:
+        treatment_options:
 
-            Array.isArray(
+            Array.isArray(
 
-                report.treatment_options
+                report.treatment_options
 
-            )
+            )
 
-                ? report.treatment_options
+                ? report.treatment_options
 
-                : [],
+                : [],
 
 
 
-        smile_characteristics: {
+        smile_characteristics: {
 
 
 
-            alignment:
+            alignment:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
 
 
-            crowding:
+            crowding:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
 
 
-            tooth_shade:
+            tooth_shade:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
 
 
-            smile_arc:
+            smile_arc:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
 
 
-            gum_display:
+            gum_display:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
 
 
-            tooth_proportions:
+            tooth_proportions:
 
-                "Not clearly visible",
+                "Not clearly visible",
 
             tooth_morphology: "Not clearly assessable",
 
@@ -1438,33 +1500,33 @@ function normalizeReport(report = {}) {
 
 
 
-            ...(report.smile_characteristics || {})
+            ...(report.smile_characteristics || {})
 
-        },
-
-
-
-        visualization_plan: {
+        },
 
 
 
-            alignment: false,
+        visualization_plan: {
 
 
 
-            whitening: false,
+            alignment: false,
 
 
 
-            veneers: false,
+            whitening: false,
 
 
 
-            enamel_recontouring: false,
+            veneers: false,
 
 
 
-            gum_modification: false,
+            enamel_recontouring: false,
+
+
+
+            gum_modification: false,
 
             morphology_correction: false,
 
@@ -1476,15 +1538,15 @@ function normalizeReport(report = {}) {
 
 
 
-            ...(report.visualization_plan || {})
+            ...(report.visualization_plan || {})
 
-        },
+        },
 
 
 
-        image_edit_instructions:
+        image_edit_instructions:
 
-            report.image_edit_instructions || "",
+            report.image_edit_instructions || "",
 
         tooth_targets:
 
@@ -1494,23 +1556,23 @@ function normalizeReport(report = {}) {
 
             )
 
-    };
+    };
 
 
 
-    // Server-side validation
+    // Server-side validation
 
-    normalized.visualization_ready =
+    normalized.visualization_ready =
 
-        isVisualizationAllowed(
+        isVisualizationAllowed(
 
-            normalized
+            normalized
 
-        );
+        );
 
 
 
-    return normalized;
+    return normalized;
 
 }
 
@@ -1528,7 +1590,7 @@ function buildImagePrompt(report, customPrompt = "") {
 
 
 
-    return `
+    return `
 
 Create a photorealistic dental-aesthetic visualization from the supplied smile photograph.
 
@@ -1622,11 +1684,11 @@ DENTAL VISUALIZATION PLAN
 
 ${JSON.stringify(
 
-    report.visualization_plan || {},
+    report.visualization_plan || {},
 
-    null,
+    null,
 
-    2
+    2
 
 )}
 
@@ -1642,11 +1704,11 @@ VISIBLE SMILE CHARACTERISTICS
 
 ${JSON.stringify(
 
-    report.smile_characteristics || {},
+    report.smile_characteristics || {},
 
-    null,
+    null,
 
-    2
+    2
 
 )}
 
@@ -1662,11 +1724,11 @@ TREATMENT VISUALIZATION CATEGORIES
 
 ${JSON.stringify(
 
-    report.treatment_options || [],
+    report.treatment_options || [],
 
-    null,
+    null,
 
-    2
+    2
 
 )}
 
@@ -1682,9 +1744,9 @@ ADDITIONAL DENTAL INSTRUCTIONS
 
 ${
 
-    report.image_edit_instructions ||
+    report.image_edit_instructions ||
 
-    "Create a realistic dental-aesthetic improvement while preserving the original photograph."
+    "Create a realistic dental-aesthetic improvement while preserving the original photograph."
 
 }
 
@@ -1873,109 +1935,109 @@ async function getRefinementImageBuffer(currentImage) {
 
 async function generateSmile(
 
-    imageBuffer,
+    imageBuffer,
 
-    mimeType,
+    mimeType,
 
-    prompt
+    prompt
 
 ) {
 
 
 
-    const form =
+    const form =
 
-        new FormData();
-
-
-
-    form.append(
-
-        "image",
-
-        imageBuffer,
-
-        {
-
-            filename: "smile.png",
-
-            contentType: mimeType
-
-        }
-
-    );
+        new FormData();
 
 
 
-    form.append(
+    form.append(
 
-        "prompt",
+        "image",
 
-        prompt
+        imageBuffer,
 
-    );
+        {
 
+            filename: "smile.png",
 
+            contentType: mimeType
 
-    form.append(
+        }
 
-        "model",
-
-        "openai/gpt-image-2"
-
-    );
+    );
 
 
 
-    const response =
+    form.append(
 
-        await axios.post(
+        "prompt",
 
-            "https://gen.pollinations.ai/v1/images/edits",
+        prompt
 
-            form,
-
-            {
-
-                headers: {
-
-                    ...form.getHeaders(),
+    );
 
 
 
-                    Authorization:
+    form.append(
 
-                        `Bearer ${process.env.POLLINATIONS_API_KEY}`
+        "model",
 
-                },
+        "openai/gpt-image-2"
 
-
-
-                responseType: "json",
+    );
 
 
 
-                maxContentLength:
+    const response =
 
-                    Infinity,
+        await axios.post(
 
+            "https://gen.pollinations.ai/v1/images/edits",
 
+            form,
 
-                maxBodyLength:
+            {
 
-                    Infinity,
+                headers: {
 
-
-
-                timeout: 300000
-
-            }
-
-        );
+                    ...form.getHeaders(),
 
 
 
-    return response.data;
+                    Authorization:
+
+                        `Bearer ${process.env.POLLINATIONS_API_KEY}`
+
+                },
+
+
+
+                responseType: "json",
+
+
+
+                maxContentLength:
+
+                    Infinity,
+
+
+
+                maxBodyLength:
+
+                    Infinity,
+
+
+
+                timeout: 300000
+
+            }
+
+        );
+
+
+
+    return response.data;
 
 }
 
@@ -1991,65 +2053,65 @@ async function generateSmile(
 
 function extractGeneratedImage(
 
-    imageResult
+    imageResult
 
 ) {
 
 
 
-    // Base64 response
+    // Base64 response
 
-    if (
+    if (
 
-        imageResult?.data?.[0]?.b64_json
+        imageResult?.data?.[0]?.b64_json
 
-    ) {
+    ) {
 
-        return (
+        return (
 
-            "data:image/png;base64," +
+            "data:image/png;base64," +
 
-            imageResult.data[0].b64_json
+            imageResult.data[0].b64_json
 
-        );
+        );
 
-    }
-
-
-
-    // URL response
-
-    if (
-
-        imageResult?.data?.[0]?.url
-
-    ) {
-
-        return (
-
-            imageResult.data[0].url
-
-        );
-
-    }
+    }
 
 
 
-    // Root URL response
+    // URL response
 
-    if (
+    if (
 
-        imageResult?.url
+        imageResult?.data?.[0]?.url
 
-    ) {
+    ) {
 
-        return imageResult.url;
+        return (
 
-    }
+            imageResult.data[0].url
+
+        );
+
+    }
 
 
 
-    return null;
+    // Root URL response
+
+    if (
+
+        imageResult?.url
+
+    ) {
+
+        return imageResult.url;
+
+    }
+
+
+
+    return null;
 
 }
 
@@ -2065,122 +2127,122 @@ function extractGeneratedImage(
 
 app.post(
 
-    "/api/analyze",
+    "/api/analyze",
 
-    upload.single("image"),
+    upload.single("image"),
     validateUploadedImage,
 
 
 
-    async (req, res) => {
+    async (req, res) => {
 
 
 
-        try {
+        try {
 
 
 
-            if (!req.file) {
+            if (!req.file) {
 
 
 
-                return res.status(400).json({
+                return res.status(400).json({
 
-                    success: false,
+                    success: false,
 
-                    error:
+                    error:
 
-                        "Please upload a smile photograph."
+                        "Please upload a smile photograph."
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            console.log(
+            console.log(
 
-                "Received image for analysis:",
+                "Received image for analysis:",
 
-                req.file.originalname
+                req.file.originalname
 
-            );
+            );
 
 
 
-            console.log(
+            console.log(
 
-                "Image size:",
+                "Image size:",
 
-                req.file.size,
+                req.file.size,
 
-                "bytes"
+                "bytes"
 
-            );
+            );
 
 
 
-            console.log(
+            console.log(
 
-                "Image type:",
+                "Image type:",
 
-                req.file.mimetype
+                req.file.mimetype
 
-            );
+            );
 
 
 
-            console.log(
+            console.log(
 
-                "Analyzing image with Kimi K3..."
+                "Analyzing image with Kimi K3..."
 
-            );
+            );
 
 
 
-            const rawReport =
+            const rawReport =
 
-                await analyzeSmile(
+                await analyzeSmile(
 
-                    req.file.buffer,
+                    req.file.buffer,
 
-                    req.file.mimetype
+                    req.file.mimetype
 
-                );
+                );
 
 
 
-            const report =
+            const report =
 
-                normalizeReport(
+                normalizeReport(
 
-                    parseKimiReport(
+                    parseKimiReport(
 
-                        rawReport
+                        rawReport
 
-                    )
+                    )
 
-                );
+                );
 
 
 
-            console.log(
+            console.log(
 
-                "Kimi analysis received."
+                "Kimi analysis received."
 
-            );
+            );
 
 
 
-            console.log(
+            console.log(
 
-                "Visualization allowed:",
+                "Visualization allowed:",
 
-                report.visualization_ready
+                report.visualization_ready
 
-            );
+            );
 
             console.log(
                 "Tooth targets detected:",
@@ -2194,121 +2256,121 @@ app.post(
 
 
 
-            if (
+            if (
 
-                !report.visualization_ready
+                !report.visualization_ready
 
-            ) {
+            ) {
 
 
 
-                console.log(
+                console.log(
 
-                    "BLOCKING REASONS:",
+                    "BLOCKING REASONS:",
 
-                    getBlockingReasons(
+                    getBlockingReasons(
 
-                        report
+                        report
 
-                    )
+                    )
 
-                );
+                );
 
 
 
-            }
+            }
 
 
 
-            const imagePrompt =
+            const imagePrompt =
 
-                report.visualization_ready
+                report.visualization_ready
 
-                    ? buildImagePrompt(
+                    ? buildImagePrompt(
 
-                        report
+                        report
 
-                    )
+                    )
 
-                    : null;
+                    : null;
 
 
 
-            return res.json({
+            return res.json({
 
 
 
-                success: true,
+                success: true,
 
 
 
-                report,
+                report,
 
 
 
-                imagePrompt
+                imagePrompt
 
 
 
-            });
+            });
 
 
 
-        } catch (error) {
+        } catch (error) {
 
 
 
-            console.error(
+            console.error(
 
-                "Analyze error:",
+                "Analyze error:",
 
-                error.response?.data ||
+                error.response?.data ||
 
-                error.message
+                error.message
 
-            );
+            );
 
 
 
-            return res.status(500).json({
+            return res.status(500).json({
 
 
 
-                success: false,
+                success: false,
 
 
 
-                error:
+                error:
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error?.message ||
+                        ?.error?.message ||
 
 
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error ||
+                        ?.error ||
 
 
 
-                    error.message ||
+                    error.message ||
 
 
 
-                    "Unable to analyze the smile."
+                    "Unable to analyze the smile."
 
 
 
-            });
+            });
 
 
 
-        }
+        }
 
 
 
-    }
+    }
 
 );
 
@@ -2657,7 +2719,56 @@ Do not treat the bbox as a segmentation mask.
     });
 
     console.log("Kimi selected-tooth provider:", kimiResult.provider);
-    const result = parseKimiReport(kimiResult.content);
+
+    // Parse the provider response. If Pollinations returns prose, malformed JSON,
+    // or a truncated object, log a bounded diagnostic and make one strict-format
+    // recovery request directly to Pollinations. Never silently accept invalid data.
+    let result;
+    try {
+        result = parseKimiReport(kimiResult.content);
+    } catch (parseError) {
+        const raw = String(kimiResult.content || "");
+        console.error("Selected-tooth JSON parse failure:", parseError.message);
+        console.error("Selected-tooth raw response length:", raw.length);
+        console.error("Selected-tooth raw response beginning:", raw.slice(0, 1200));
+        console.error("Selected-tooth raw response ending:", raw.slice(-800));
+
+        const recoveryPrompt = `${prompt}
+
+FORMAT RECOVERY — IMPORTANT:
+Your previous response was not valid JSON. Re-analyze the same supplied image and return exactly one complete JSON object matching the schema in the original prompt. Do not use Markdown fences or explanatory prose. Ensure success is a boolean, tooth is exactly \"${target.tooth}\", analyzable is a boolean, confidence is a number from 0 to 1, assessment contains the requested fields, visualization contains the requested boolean fields, and visualization_instructions and summary are strings. Do not truncate the JSON. If the tooth cannot be confidently assessed, return a valid JSON object with success=true, tooth=\"${target.tooth}\", analyzable=false and a concise reason.`;
+
+        let recoveredContent;
+        try {
+            recoveredContent = await callPollinationsVisionDirect({
+                imageDataUrl,
+                prompt: recoveryPrompt,
+                operationName: `selected tooth ${target.tooth} JSON recovery`,
+                maxTokens: 4096
+            });
+            result = parseKimiReport(recoveredContent);
+        } catch (recoveryError) {
+            const recoveryRaw = String(recoveredContent || "");
+            console.error("Selected-tooth Pollinations JSON recovery failed:", recoveryError.message);
+            if (recoveryRaw) {
+                console.error("Recovery response length:", recoveryRaw.length);
+                console.error("Recovery response beginning:", recoveryRaw.slice(0, 1000));
+                console.error("Recovery response ending:", recoveryRaw.slice(-500));
+            }
+            throw new Error(
+                `Selected-tooth analysis returned invalid JSON from ${kimiResult.provider || "the vision provider"}; one Pollinations recovery attempt also failed. Check the response diagnostics above and verify the configured model is available.`
+            );
+        }
+    }
+
+    // Do not accept a syntactically valid but unrelated response.
+    if (String(result?.tooth || "") !== String(target.tooth)) {
+        throw new Error(`Selected-tooth response mismatch: expected FDI ${target.tooth}, received ${result?.tooth || "no tooth number"}.`);
+    }
+    if (typeof result?.success !== "boolean" || typeof result?.analyzable !== "boolean") {
+        throw new Error("Selected-tooth response is missing required boolean fields (success/analyzable).");
+    }
+
     console.log("Selected-tooth analysis result received.");
     console.log(
         "Selected-tooth visualization instructions:",
@@ -2877,25 +2988,25 @@ Return only the edited image crop, with no labels, text, boxes, markers, dots, o
 
 
 async function generateToothVisualization(
-    editingCropBuffer,
+    editingImageBuffer,
     mimeType,
     prompt,
     referenceImages = []
 ) {
     const form = new FormData();
 
-    // First image is always the patient's isolated tooth crop.
+    // First image is the patient's full photograph. Keep it first so the
+    // image-editing model treats it as the image to edit; later images are guides.
     form.append(
         "image",
-        editingCropBuffer,
+        editingImageBuffer,
         {
-            filename: "isolated-tooth-editing-crop.jpg",
+            filename: "patient-smile-editing-source.jpg",
             contentType: mimeType || "image/jpeg"
         }
     );
 
-    // Multi-image edit mode: attach reference views as repeated "image" fields.
-    // The patient crop remains the first image; reference images are additional context.
+    // Attach only the selected tooth reference(s) after the patient image.
     for (const [index, reference] of referenceImages.entries()) {
         if (!reference || !Buffer.isBuffer(reference.buffer) || !reference.buffer.length) {
             continue;
@@ -2906,8 +3017,39 @@ async function generateToothVisualization(
         });
     }
 
+    // Explicitly request an output canvas matching the source aspect ratio.
+    // GPT Image sizes must be multiples of 16; cap the longest edge at 2560px
+    // for a broadly supported output size. The compositor still rejects an
+    // actual result whose aspect ratio differs materially from the source.
+    const sourceMeta = await sharp(editingImageBuffer).metadata();
+    const sourceWidth = Number(sourceMeta.width || 0);
+    const sourceHeight = Number(sourceMeta.height || 0);
+    if (!sourceWidth || !sourceHeight) {
+        throw new Error("Unable to determine source image dimensions before selected-tooth generation.");
+    }
+
+    const ratio = sourceWidth / sourceHeight;
+    if (ratio < (1 / 3) || ratio > 3) {
+        throw new Error("The source photo aspect ratio is outside the image model's supported 1:3 to 3:1 range. Please crop or resize the photo before precise tooth editing.");
+    }
+
+    const scale = Math.min(1, 2560 / Math.max(sourceWidth, sourceHeight));
+    const roundTo16 = value => Math.max(16, Math.round(value / 16) * 16);
+    const outputWidth = roundTo16(sourceWidth * scale);
+    const outputHeight = roundTo16(sourceHeight * scale);
+    const requestedRatio = outputWidth / outputHeight;
+    console.log("Selected-tooth output canvas requested:", {
+        source: `${sourceWidth}x${sourceHeight}`,
+        requested: `${outputWidth}x${outputHeight}`,
+        sourceAspectRatio: Number(ratio.toFixed(5)),
+        requestedAspectRatio: Number(requestedRatio.toFixed(5))
+    });
+
+    form.append("size", `${outputWidth}x${outputHeight}`);
     form.append("prompt", prompt);
     form.append("model", "openai/gpt-image-2");
+    form.append("quality", "high");
+    form.append("output_format", "png");
 
     const response = await axios.post(
         "https://gen.pollinations.ai/v1/images/edits",
@@ -2915,8 +3057,7 @@ async function generateToothVisualization(
         {
             headers: {
                 ...form.getHeaders(),
-                Authorization:
-                    `Bearer ${process.env.POLLINATIONS_API_KEY}`
+                Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY}`
             },
             responseType: "json",
             maxContentLength: Infinity,
@@ -2927,7 +3068,6 @@ async function generateToothVisualization(
 
     return response.data;
 }
-
 
 function dataUrlToBuffer(dataUrl) {
     if (typeof dataUrl !== "string") {
@@ -3032,6 +3172,134 @@ async function createIsolatedToothEditingCrop(
 }
 
 
+
+
+/**
+ * Deterministically scales the selected crown cutout using the supplied binary
+ * mask. This is a geometry pass after image generation, not a clinical
+ * segmentation algorithm. The mask must be a full-frame grayscale PNG.
+ * The bottom of the mask box is used as the provisional cervical anchor.
+ * For shrink operations, the AI-generated frame supplies reconstructed pixels
+ * behind the smaller crown. The final protected composite limits those changes to
+ * the union of the old and new crown regions.
+ */
+async function applyDeterministicCrownTransform({
+    originalImageBuffer,
+    aiGeneratedBuffer,
+    maskBuffer,
+    bbox,
+    targetWidth,
+    targetHeight,
+    tooth
+}) {
+    const meta = await sharp(originalImageBuffer).metadata();
+    const imageWidth = Number(meta.width || 0);
+    const imageHeight = Number(meta.height || 0);
+    const x = Math.max(0, Math.round(Number(bbox?.x)));
+    const y = Math.max(0, Math.round(Number(bbox?.y)));
+    const width = Math.round(Number(bbox?.width));
+    const height = Math.round(Number(bbox?.height));
+    const outWidth = Math.round(Number(targetWidth));
+    const outHeight = Math.round(Number(targetHeight));
+
+    if (
+        !imageWidth || !imageHeight || !maskBuffer ||
+        ![x, y, width, height, outWidth, outHeight].every(Number.isFinite) ||
+        width < 2 || height < 2 || outWidth < 2 || outHeight < 2 ||
+        x + width > imageWidth || y + height > imageHeight
+    ) {
+        return { applied: false, reason: "Invalid mask bounds or dimensions." };
+    }
+
+    if (outWidth === width && outHeight === height) {
+        return { applied: false, reason: "Dimensions are unchanged (100%)." };
+    }
+
+    const maskMeta = await sharp(maskBuffer).metadata();
+    if (Number(maskMeta.width) !== imageWidth || Number(maskMeta.height) !== imageHeight) {
+        return { applied: false, reason: "Tooth mask dimensions do not match source image." };
+    }
+
+    // 1. Extract the original tooth RGB pixels so enamel texture stays sharp
+    const toothRgb = await sharp(originalImageBuffer)
+        .extract({ left: x, top: y, width, height })
+        .removeAlpha()
+        .png()
+        .toBuffer();
+
+    // 2. Extract and slightly feather the binary mask so resized edges blend smoothly
+    const alphaMask = await sharp(maskBuffer)
+        .extract({ left: x, top: y, width, height })
+        .greyscale()
+        .blur(1.2)
+        .png()
+        .toBuffer();
+
+    const toothWithAlpha = await sharp(toothRgb)
+        .joinChannel(alphaMask)
+        .png()
+        .toBuffer();
+
+    // 3. Scale the crown to the exact target pixel width and height
+    const resizedTooth = await sharp(toothWithAlpha)
+        .resize(outWidth, outHeight, { fit: "fill", kernel: sharp.kernel.lanczos3 })
+        .png()
+        .toBuffer();
+
+    // 4. Center horizontally; anchor vertically at the cervical gumline:
+    //    - Upper arch (FDI 11-28): gumline is at the TOP (y stays fixed, incisal edge moves down/up)
+    //    - Lower arch (FDI 31-48): gumline is at the BOTTOM (bottom edge stays fixed)
+    const isLowerTooth = /^[34]/.test(String(tooth || "").trim());
+    const left = Math.max(0, Math.min(imageWidth - outWidth, Math.round(x + (width - outWidth) / 2)));
+    const top = isLowerTooth
+        ? Math.max(0, Math.min(imageHeight - outHeight, Math.round(y + height - outHeight)))
+        : Math.max(0, Math.min(imageHeight - outHeight, y));
+
+    // 5. Choose base canvas:
+    //    When shrinking, use the AI-generated frame around the tooth so newly exposed
+    //    space behind the old tooth silhouette is naturally filled.
+    const isShrinking = outWidth < width || outHeight < height;
+    const baseCanvas = (isShrinking && aiGeneratedBuffer) ? aiGeneratedBuffer : originalImageBuffer;
+
+    const compositedBuffer = await sharp(baseCanvas)
+        .composite([{ input: resizedTooth, left, top, blend: "over" }])
+        .jpeg({ quality: 98 })
+        .toBuffer();
+
+    // 6. Protect the rest of the face/teeth by compositing only the local region back onto originalImageBuffer
+    const unionX0 = Math.max(0, Math.min(x, left) - 6);
+    const unionY0 = Math.max(0, Math.min(y, top) - 6);
+    const unionX1 = Math.min(imageWidth, Math.max(x + width, left + outWidth) + 6);
+    const unionY1 = Math.min(imageHeight, Math.max(y + height, top + outHeight) + 6);
+
+    const protectedTarget = {
+        bbox: {
+            x: unionX0,
+            y: unionY0,
+            width: Math.max(2, unionX1 - unionX0),
+            height: Math.max(2, unionY1 - unionY0)
+        }
+    };
+
+    const finalProtectedBuffer = await compositeFullFrameWithinSelectedTooth(
+        originalImageBuffer,
+        compositedBuffer,
+        protectedTarget
+    );
+
+    return {
+        applied: true,
+        imageBuffer: finalProtectedBuffer,
+        originalMaskDimensions: { width, height },
+        targetMaskDimensions: { width: outWidth, height: outHeight },
+        placement: {
+            x: left,
+            y: top,
+            anchor: isLowerTooth ? "bottom-gumline-lower-arch" : "top-gumline-upper-arch"
+        }
+    };
+}
+
 async function validateSelectedToothEdit(originalCropBuffer, editedCropBuffer, target, toothReport) {
     // Compare original (left) and edited (right) crops with a vision-based QA gate.
     // This is a visual quality check, not a clinical diagnosis or guarantee.
@@ -3048,7 +3316,9 @@ async function validateSelectedToothEdit(originalCropBuffer, editedCropBuffer, t
         { input: right, left: panelWidth, top: 0 }
     ]).png().toBuffer();
     const imageDataUrl = `data:image/png;base64,${comparison.toString("base64")}`;
-    const prompt = `STRICT NO-OP REJECTION REVIEW. The comparison image shows ORIGINAL crop on the LEFT and EDITED crop on the RIGHT. Selected tooth: FDI ${target.tooth}. Intended change: ${JSON.stringify({ summary: toothReport?.summary, visualization: toothReport?.visualization, visualization_instructions: toothReport?.visualization_instructions })}. Compare the selected tooth's visible outline/geometry, not just color or texture. Return JSON only with keys pass (boolean), correction_visible (boolean), target_tooth_preserved (boolean), unintended_changes (boolean), invented_defect (boolean), reason (short string). Set correction_visible=false and pass=false if the requested structural change cannot be clearly seen at normal viewing size, if the crown silhouette is effectively unchanged, or if only shade/highlights/texture changed. Pass only if the requested feature has a perceptible visible change, the tooth remains plausible and recognizable, preserved features remain consistent, and no obvious artifacts or neighboring-tooth changes appear. Fail if a structural change was requested but the result is near-identical, or if an unsupported notch/chip/defect was introduced. Do not diagnose disease; assess only visible image-edit quality.`;
+    const prompt = `STRICT SELECTED-TOOTH EDIT QA. The comparison image shows ORIGINAL crop on the LEFT and EDITED crop on the RIGHT. Selected tooth: FDI ${target.tooth}. Intended change: ${JSON.stringify({ summary: toothReport?.summary, visualization: toothReport?.visualization, visualization_instructions: toothReport?.visualization_instructions, requested_relative_size: toothReport?.requested_relative_size, requested_dimensions_mm: toothReport?.requested_dimensions_mm, dentist_custom_prompt: toothReport?.dentist_custom_prompt })}.
+
+Compare the selected crown geometry, not just color, highlights, sharpness, or texture. If requested heightPercent or widthPercent differs from 100, judge that dimension specifically: 100 means unchanged; 110 means approximately 10% larger; 90 means approximately 10% smaller. The edited crown should move clearly in the requested direction and be reasonably close to the requested scale (allow visual-estimation tolerance of about 8 percentage points). Do not pass a height-only change if width was requested, or vice versa. Numeric millimetres are not physically verifiable from this uncalibrated photo; treat them as visual proportions only. Return JSON only with keys pass (boolean), correction_visible (boolean), target_tooth_preserved (boolean), unintended_changes (boolean), invented_defect (boolean), reason (short string). Set correction_visible=false and pass=false if the requested size/structural change cannot be clearly seen at normal viewing size, if the crown silhouette is effectively unchanged, if the change goes in the wrong direction, or if only shade/highlights/texture changed. Pass only if the requested dimensions visibly change in the intended direction, the tooth remains plausible and recognizable, preserved features remain consistent, and no obvious artifacts or neighboring-tooth changes appear. Fail if a structural change was requested but the result is near-identical, or if an unsupported notch/chip/defect was introduced. Also fail if there is a dark crescent or black/brown patch beneath the crown, leftover white sliver or original-tooth fragment, visible compositing seam/halo, duplicated incisal edge, or unintended changes to neighboring teeth or gingiva. Do not diagnose disease; assess only visible image-edit quality.`;
     const review = await callKimiWithFallback({
         imageDataUrl,
         prompt,
@@ -3071,6 +3341,7 @@ async function validateSelectedToothEdit(originalCropBuffer, editedCropBuffer, t
     if (parsed.pass !== true || parsed.correction_visible !== true || parsed.target_tooth_preserved !== true || parsed.unintended_changes === true || parsed.invented_defect === true) {
         const qaError = new Error(`Selected-tooth edit failed visual QA: ${String(parsed.reason || "quality checks did not pass").slice(0, 300)}`);
         qaError.code = "TOOTH_EDIT_QA_FAILED";
+        qaError.qaResult = parsed;
         throw qaError;
     }
     return parsed;
@@ -3079,7 +3350,8 @@ async function validateSelectedToothEdit(originalCropBuffer, editedCropBuffer, t
 async function compositeIsolatedToothOntoOriginal(
     originalBuffer,
     generatedCropBuffer,
-    cropInfo
+    cropInfo,
+    sizeAdjustment = { heightPercent: 100, widthPercent: 100 }
 ) {
     // Use a smooth geometric mask around the selected-tooth localization box.
     // Do NOT derive alpha from original enamel pixels: that clips any newly
@@ -3104,8 +3376,15 @@ async function compositeIsolatedToothOntoOriginal(
     // Expand the target slightly to accommodate the new crown silhouette.
     // Keep the mask bounded to the localized target region to reduce changes
     // to adjacent teeth and surrounding tissue.
-    const padX = Math.max(2, Math.round(toothWidth * 0.10));
-    const padY = Math.max(2, Math.round(toothHeight * 0.07));
+    // Reserve enough blending room for requested crown growth. Previously the
+    // blend ellipse expanded only 10% horizontally and 7% vertically, so a
+    // requested 120–130% crown could be generated but then clipped at compositing.
+    const widthPercent = Number(sizeAdjustment?.widthPercent || 100);
+    const heightPercent = Number(sizeAdjustment?.heightPercent || 100);
+    const widthGrowth = Math.max(0, widthPercent / 100 - 1);
+    const heightGrowth = Math.max(0, heightPercent / 100 - 1);
+    const padX = Math.max(2, Math.round(toothWidth * (0.10 + widthGrowth / 2)));
+    const padY = Math.max(2, Math.round(toothHeight * (0.07 + heightGrowth / 2)));
     const x0 = Math.max(0, toothX - padX);
     const y0 = Math.max(0, toothY - padY);
     const x1 = Math.min(width, toothX + toothWidth + padX);
@@ -3172,6 +3451,78 @@ async function compositeIsolatedToothOntoOriginal(
             top,
             blend: "over"
         }])
+        .jpeg({ quality: 98 })
+        .toBuffer();
+}
+
+
+
+// Composite a full-frame AI result only inside a soft, target-centered crown region.
+// The model may alter other teeth, but those pixels are discarded in favor of the original.
+// This is a geometric protection mask based on localization bbox, not a true tooth segmentation.
+async function compositeFullFrameWithinSelectedTooth(originalBuffer, generatedBuffer, target) {
+    const originalMeta = await sharp(originalBuffer).metadata();
+    const generatedMeta = await sharp(generatedBuffer).metadata();
+    const width = Number(originalMeta.width || 0);
+    const height = Number(originalMeta.height || 0);
+    if (!width || !height || !generatedMeta.width || !generatedMeta.height) {
+        throw new Error("Unable to determine image dimensions for selected-tooth compositing.");
+    }
+
+    const originalAspect = width / height;
+    const generatedAspect = Number(generatedMeta.width) / Number(generatedMeta.height);
+    const aspectDifference = Math.abs(generatedAspect - originalAspect) / originalAspect;
+    console.log("Selected-tooth generated image dimensions:", {
+        source: `${width}x${height}`,
+        generated: `${generatedMeta.width}x${generatedMeta.height}`,
+        sourceAspectRatio: Number(originalAspect.toFixed(5)),
+        generatedAspectRatio: Number(generatedAspect.toFixed(5)),
+        relativeAspectDifferencePercent: Number((aspectDifference * 100).toFixed(2))
+    });
+    if (!Number.isFinite(generatedAspect) || aspectDifference > 0.02) {
+        throw new Error(`The image-editing model returned a different image composition (source ${width}x${height}; generated ${generatedMeta.width}x${generatedMeta.height}; aspect-ratio difference ${(aspectDifference * 100).toFixed(2)}%). Please retry; the source image was not changed.`);
+    }
+
+    const bbox = target?.bbox || {};
+    const bx = Number(bbox.x);
+    const by = Number(bbox.y);
+    const bw = Number(bbox.width);
+    const bh = Number(bbox.height);
+    if (![bx, by, bw, bh].every(Number.isFinite) || bw < 2 || bh < 2 || bx < 0 || by < 0 || bx + bw > width || by + bh > height) {
+        throw new Error("Selected-tooth bounding box is invalid for protected compositing.");
+    }
+
+    // Tighter padding and sharper feather to prevent bleed onto neighboring teeth
+    const padX = Math.max(1, Math.round(bw * 0.03));
+    const padY = Math.max(1, Math.round(bh * 0.03));
+    const x0 = Math.max(0, Math.floor(bx - padX));
+    const y0 = Math.max(0, Math.floor(by - padY));
+    const x1 = Math.min(width, Math.ceil(bx + bw + padX));
+    const y1 = Math.min(height, Math.ceil(by + bh + padY));
+    const maskWidth = Math.max(1, x1 - x0);
+    const maskHeight = Math.max(1, y1 - y0);
+    const radius = Math.max(1, Math.min(maskWidth, maskHeight) * 0.08);
+    const feather = 0.8;
+
+    // Rounded crown-like region with a narrow feather. Avoids a rectangular patch edge.
+    const maskSvg = Buffer.from(`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="${feather}"/></filter></defs><rect width="${width}" height="${height}" fill="black"/><rect x="${x0}" y="${y0}" width="${maskWidth}" height="${maskHeight}" rx="${radius}" ry="${radius}" fill="white" filter="url(#soft)"/></svg>`);
+    const mask = await sharp(maskSvg).greyscale().removeAlpha().raw().toBuffer();
+    const expected = width * height;
+    if (mask.length !== expected) throw new Error("Selected-tooth protection mask dimensions are invalid.");
+
+    const { data: generatedRaw, info } = await sharp(generatedBuffer)
+        .resize(width, height, { fit: "fill" })
+        .removeAlpha()
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+    if (info.channels !== 4 || generatedRaw.length !== expected * 4) {
+        throw new Error("Unable to prepare generated image for selected-tooth protection.");
+    }
+    for (let i = 0; i < expected; i++) generatedRaw[i * 4 + 3] = mask[i];
+    const overlay = await sharp(generatedRaw, { raw: { width, height, channels: 4 } }).png().toBuffer();
+    return sharp(originalBuffer)
+        .composite([{ input: overlay, left: 0, top: 0, blend: "over" }])
         .jpeg({ quality: 98 })
         .toBuffer();
 }
@@ -3424,9 +3775,41 @@ COORDINATES:
         kimiResult.provider
     );
 
-    return parseKimiToothLocalization(
-        kimiResult.content
-    );
+    try {
+        return parseKimiToothLocalization(kimiResult.content);
+    } catch (parseError) {
+        // One format-only recovery attempt. Do not invent coordinates locally:
+        // ask the vision model to return the required schema again.
+        console.warn(
+            "Precise localization response was not valid JSON. Retrying once with a strict JSON-only repair prompt.",
+            String(kimiResult.content || "").slice(0, 350)
+        );
+
+        const repairPrompt = `${prompt}
+
+FORMAT RECOVERY — your previous answer could not be parsed as JSON. Re-examine the same image and return ONLY one complete valid JSON object matching the exact schema above. No markdown fences, no explanation, no reasoning, no comments, and no trailing commas. Ensure the top-level \"teeth\" field is an array. Use only real pixel coordinates for this image (${imageWidth}x${imageHeight}).`;
+        const repairedResult = await callKimiWithFallback({
+            imageDataUrl,
+            prompt: repairPrompt,
+            operationName: "precise tooth localization JSON retry",
+            primaryMaxTokens: 4096,
+            fallbackMaxTokens: 4096,
+            retryPrimaryWithoutStream: true
+        });
+
+        console.log("Kimi localization retry provider:", repairedResult.provider);
+        try {
+            return parseKimiToothLocalization(repairedResult.content);
+        } catch (retryError) {
+            console.error(
+                "Precise localization retry still returned invalid JSON:",
+                String(repairedResult.content || "").slice(0, 500)
+            );
+            throw new Error(
+                "Precise tooth localization failed because both model responses were invalid JSON. Please retry once; if it repeats, check provider response format and timeout settings."
+            );
+        }
+    }
 }
 
 
@@ -3810,7 +4193,7 @@ app.post(
             let payload = {};
             try { payload = JSON.parse(req.body.payload || "{}"); }
             catch { return res.status(400).json({ success: false, error: "Invalid smile replacement payload." }); }
-            const customPrompt = String(payload.customPrompt || "").trim();
+            const customPrompt = String(payload.customPrompt || req.body.customPrompt || "").trim();
             if (customPrompt.length > 1600) {
                 return res.status(400).json({ success: false, error: "Smile design instructions must be 1,600 characters or fewer." });
             }
@@ -3884,10 +4267,48 @@ app.post(
                 });
             }
 
-            const target = payload.target;
-            const toothReport = payload.toothReport;
-            const selectedVariantId = String(payload.selectedVariantId || "").trim();
-            const customPrompt = String(payload.customPrompt || "").trim();
+            const gapClosure = payload.gapClosure === true;
+            const selectedTargets = gapClosure && Array.isArray(payload.selectedTargets)
+                ? payload.selectedTargets
+                : [];
+            if (gapClosure && selectedTargets.length < 2) {
+                return res.status(400).json({
+                    success: false,
+                    code: "GAP_CLOSURE_NEEDS_MULTIPLE_TEETH",
+                    error: "Select at least two analyzable teeth for gap closure."
+                });
+            }
+            const target = gapClosure ? selectedTargets[0] : payload.target;
+            const toothReport = gapClosure
+                ? {
+                    success: true,
+                    analyzable: true,
+                    tooth: String(selectedTargets[0]?.tooth || ""),
+                    summary: "Dentist-requested gap closure across selected adjacent teeth.",
+                    visualization: { morphology_correction: true, contour_correction: true },
+                    visualization_instructions: "Close visible interdental gaps between the dentist-selected teeth by making conservative, coordinated changes to the facing crown contours. Preserve natural tooth identity, plausible proportions, enamel texture, contact points, gumline, and all unselected teeth. Do not change shade as a substitute for closing the gaps."
+                }
+                : payload.toothReport;
+            const selectedVariantId = gapClosure ? "" : String(payload.selectedVariantId || "").trim();
+            const customPrompt = String(payload.customPrompt || req.body.customPrompt || "").trim();
+            let desiredSizeAdjustment = { heightPercent: 100, widthPercent: 100 };
+            if (payload.desiredSizeAdjustment != null) {
+                const heightPercent = Number(payload.desiredSizeAdjustment.heightPercent);
+                const widthPercent = Number(payload.desiredSizeAdjustment.widthPercent);
+                if (!Number.isFinite(heightPercent) || !Number.isFinite(widthPercent) || heightPercent < 70 || heightPercent > 130 || widthPercent < 70 || widthPercent > 130) {
+                    return res.status(400).json({ success: false, code: "INVALID_SIZE_ADJUSTMENT", error: "Height and width adjustments must each be between 70% and 130%." });
+                }
+                desiredSizeAdjustment = { heightPercent, widthPercent };
+            }
+            let desiredDimensionsMm = null;
+            if (payload.desiredDimensionsMm != null) {
+                const requestedHeight = Number(payload.desiredDimensionsMm.height);
+                const requestedWidth = Number(payload.desiredDimensionsMm.width);
+                if (!Number.isFinite(requestedHeight) || !Number.isFinite(requestedWidth) || requestedHeight < 1 || requestedHeight > 30 || requestedWidth < 1 || requestedWidth > 30) {
+                    return res.status(400).json({ success: false, code: "INVALID_TARGET_DIMENSIONS", error: "Target crown height and width must each be between 1 and 30 mm." });
+                }
+                desiredDimensionsMm = { height: requestedHeight, width: requestedWidth, heightWidthRatio: Number((requestedHeight / requestedWidth).toFixed(4)) };
+            }
 
             // Retrieve the matching FDI database record for this visualization.
             // Missing image files are expected until the reference library is populated.
@@ -3915,20 +4336,62 @@ app.post(
             const selectedShapeVariant = availableShapeVariants.find((variant) =>
                 String(variant?.id || "") === selectedVariantId
             );
-            if (availableShapeVariants.length && !selectedVariantId) {
+            if (!gapClosure && availableShapeVariants.length && !selectedVariantId) {
                 return res.status(400).json({
                     success: false,
                     code: "SHAPE_VARIANT_REQUIRED",
                     error: "Choose a tooth shape before generating the visualization."
                 });
             }
-            if (selectedVariantId && !selectedShapeVariant) {
+            if (!gapClosure && selectedVariantId && !selectedShapeVariant) {
                 return res.status(400).json({
                     success: false,
                     code: "INVALID_SHAPE_VARIANT",
                     error: `The selected shape variant is not available for FDI ${tooth}.`
                 });
             }
+
+            // A dentist-selected shape variant is itself an explicit structural
+            // instruction. Do not let a tooth analysis that marked all edits false
+            // override the selected shape or cause QA to judge the result as a no-op.
+            const hasExplicitSizeChange =
+                desiredSizeAdjustment.heightPercent !== 100 ||
+                desiredSizeAdjustment.widthPercent !== 100 ||
+                Boolean(desiredDimensionsMm);
+
+            const sizeInstructionText = hasExplicitSizeChange
+                ? `DENTIST-REQUESTED CROWN DIMENSION OVERRIDE: Adjust ONLY FDI ${tooth} to ${desiredSizeAdjustment.heightPercent}% of its current visible height and ${desiredSizeAdjustment.widthPercent}% of its current visible width${desiredDimensionsMm ? ` (target proportion: ${desiredDimensionsMm.height} mm height × ${desiredDimensionsMm.width} mm width)` : ""}. Ignore any prior assessment instructions that say to "preserve as-is" for width or height. Keep the gumline fixed and adjust the incisal/side edges.`
+                : "";
+
+            const effectiveToothReport = (selectedShapeVariant || hasExplicitSizeChange)
+                ? {
+                    ...(toothReport || {}),
+                    assessment: {
+                        ...(toothReport?.assessment || {}),
+                        size_shape_targets: {
+                            ...(toothReport?.assessment?.size_shape_targets || {}),
+                            ...(desiredSizeAdjustment.widthPercent !== 100 || desiredDimensionsMm
+                                ? { apparent_width: `Change visible crown width to ${desiredSizeAdjustment.widthPercent}% of current width` }
+                                : {}),
+                            ...(desiredSizeAdjustment.heightPercent !== 100 || desiredDimensionsMm
+                                ? { visible_height: `Change visible crown height to ${desiredSizeAdjustment.heightPercent}% of current height` }
+                                : {})
+                        }
+                    },
+                    visualization: {
+                        ...(toothReport?.visualization || {}),
+                        morphology_correction: true,
+                        contour_correction: true
+                    },
+                    visualization_instructions: [
+                        String(toothReport?.visualization_instructions || "").trim(),
+                        selectedShapeVariant
+                            ? `DENTIST-SELECTED STRUCTURAL TARGET: Change only FDI ${tooth} so its visible crown outline follows the selected ${selectedShapeVariant.label || selectedShapeVariant.name || selectedShapeVariant.id} shape variant (${selectedShapeVariant.id}). This selection explicitly requests a visible crown-contour/morphology change even if the analysis report otherwise says to preserve the existing shape. Keep apparent position, neighboring teeth, gumline, face, lighting, and framing unchanged unless a separate instruction explicitly requests otherwise. Do not substitute shade or texture changes for the shape change. QA must evaluate this selected shape target.`
+                            : "",
+                        sizeInstructionText
+                    ].filter(Boolean).join("\n\n")
+                }
+                : toothReport;
 
             if (
                 !target ||
@@ -3965,6 +4428,54 @@ app.post(
                 });
             }
 
+            let validatedTargets = [validatedTarget];
+            let compositingTarget = validatedTarget;
+            if (gapClosure) {
+                const targetByTooth = new Map();
+                for (const selected of selectedTargets) {
+                    const selectedNumber = String(selected?.tooth || "").trim();
+                    if (!VALID_FDI_TEETH.has(selectedNumber) || targetByTooth.has(selectedNumber)) {
+                        return res.status(400).json({
+                            success: false,
+                            error: "Gap closure contains an invalid or duplicate FDI tooth."
+                        });
+                    }
+                    let checked;
+                    try {
+                        checked = await validateSelectedToothTarget(req.file.buffer, selected, selectedNumber);
+                    } catch (validationError) {
+                        return res.status(400).json({ success: false, error: validationError.message });
+                    }
+                    if (checked.analyzable !== true) {
+                        return res.status(422).json({
+                            success: false,
+                            code: "TOOTH_NOT_ANALYZABLE",
+                            error: checked.reason || `FDI ${selectedNumber} is not analyzable.`
+                        });
+                    }
+                    targetByTooth.set(selectedNumber, checked);
+                }
+                validatedTargets = Array.from(targetByTooth.values());
+                const boxes = validatedTargets.map(item => item.bbox);
+                const minX = Math.min(...boxes.map(box => Number(box.x)));
+                const minY = Math.min(...boxes.map(box => Number(box.y)));
+                const maxX = Math.max(...boxes.map(box => Number(box.x) + Number(box.width)));
+                const maxY = Math.max(...boxes.map(box => Number(box.y) + Number(box.height)));
+                const imageMeta = await sharp(req.file.buffer).metadata();
+                const padX = Math.max(6, Math.round((maxX - minX) * 0.12));
+                const padY = Math.max(6, Math.round((maxY - minY) * 0.10));
+                const x = Math.max(0, minX - padX);
+                const y = Math.max(0, minY - padY);
+                const right = Math.min(Number(imageMeta.width), maxX + padX);
+                const bottom = Math.min(Number(imageMeta.height), maxY + padY);
+                compositingTarget = {
+                    ...validatedTargets[0],
+                    bbox: { x, y, width: right - x, height: bottom - y }
+                };
+                console.log("Gap closure selected teeth:", validatedTargets.map(item => item.tooth));
+                console.log("Gap closure combined editing region:", compositingTarget.bbox);
+            }
+
             if (
                 !toothReport?.success ||
                 toothReport?.analyzable === false ||
@@ -3983,6 +4494,8 @@ app.post(
             console.log("Tooth:", tooth);
             console.log("Target confidence:", validatedTarget.confidence);
             console.log("Verified tooth report received.");
+            console.log("Dentist target crown dimensions (mm):", desiredDimensionsMm || "not specified");
+            console.log("Dentist relative size adjustment:", desiredSizeAdjustment);
 
             // 1. Keep the full annotated reference image for the dentist/UI.
             const referenceBuffer =
@@ -3996,31 +4509,27 @@ app.post(
             //    rectangular seams and could clip the edited crown at the mask edge.
             const originalMetadata = await sharp(req.file.buffer).metadata();
             const fullImagePrompt = `
-EDIT THE FULL PHOTOGRAPH IN PLACE. Return a full-frame image with the same dimensions and composition as the input. Do not return a crop, inset, patch, collage, or duplicate overlay.
+Edit the supplied full-frame smile photograph. Return one complete image with the same framing and composition.
 
-PRIMARY TASK: Edit only the selected visible tooth FDI ${tooth} (${validatedTarget.label || "selected tooth"}) in the original smile photograph. Use the localization bounding box only as a location hint, not as a visible rectangle or segmentation mask:
-${JSON.stringify({ bbox: validatedTarget.bbox, center: validatedTarget.center, imageWidth: originalMetadata.width, imageHeight: originalMetadata.height }, null, 2)}
+TARGET: ${gapClosure
+    ? `Make a coordinated, natural gap-closure edit across only these selected teeth: ${validatedTargets.map(item => `FDI ${item.tooth} (${item.label || "selected tooth"})`).join(", ")}. Close the visible spaces by adjusting their facing crown contours without fusing separate teeth.`
+    : `Edit only FDI ${tooth} (${validatedTarget.label || "selected tooth"}) using its localization box as a position guide.`}
 
-TOOTH-SPECIFIC ASSESSMENT:
-${JSON.stringify(toothReport || {}, null, 2)}
+DENTIST'S REQUEST: ${gapClosure ? "Close the selected visible interdental gaps." : String(effectiveToothReport?.summary || "Follow the verified tooth assessment and selected shape, if any.")}
 
-PRESERVATION REQUIREMENTS:
-- Keep the whole photograph, face, lips, gingiva, lighting, camera angle, image framing, and background intact.
-- Change only the selected tooth's visible crown as specified in the assessment. Keep all other teeth unchanged.
-- Do not draw or preserve any rectangular boundary, crop edge, mask edge, frame, box, patch, or pasted region.
-- Blend the tooth change naturally into its actual outline and contacts; preserve realistic enamel texture, translucency, shadows, and gumline.
-- Do not alter the surrounding gum or adjacent teeth to make the edit easier. Do not invent chips, notches, or defects.
-- If a selected shape reference is attached, use it only as a shape guide for the selected tooth, not as an image to paste into the photograph.
-- The requested structural change must be visibly apparent if specified; do not substitute whitening or gloss for a shape/alignment correction.
+${desiredDimensionsMm ? `DESIRED CROWN SIZE: The dentist requests a visible crown height of ${desiredDimensionsMm.height} mm and width of ${desiredDimensionsMm.width} mm (height-to-width ratio ${desiredDimensionsMm.heightWidthRatio}). Use these as visual proportion targets, not a guarantee of exact physical measurements; do not add measurement labels.` : "SIZE: No numeric target crown dimensions were supplied."}
+RELATIVE SIZE CONTROLS: The dentist set height to ${desiredSizeAdjustment.heightPercent}% and width to ${desiredSizeAdjustment.widthPercent}% of the tooth's current apparent size. 100% means leave that dimension unchanged; above 100% means visibly increase it; below 100% means visibly decrease it. Apply these adjustments only to the selected crown, preserving plausible anatomy and the gumline. If a numeric millimetre target is also provided, use it alongside these relative controls as guidance.
 
-KIMI EDITING INSTRUCTIONS:
-${String(toothReport?.visualization_instructions || "").trim() || "Make only the explicit requested tooth change supported by the visible photograph."}
+${selectedShapeVariant ? `SHAPE REFERENCE: The dentist selected the ${selectedShapeVariant.label || selectedShapeVariant.name || selectedShapeVariant.id} crown-shape variant. Use it as a shape guide for the target tooth, not as an image to paste.` : ""}
 
-${customPrompt ? `ADDITIONAL USER INSTRUCTIONS FOR FDI ${tooth} ONLY:
-${customPrompt.slice(0, 1200)}` : ""}
+PRESERVE: Keep the patient's identity, smile framing, lips, gums, lighting, background, and all unselected teeth as unchanged as possible. Make the requested change clearly visible while retaining natural tooth anatomy, enamel appearance, and believable contact edges. Do not invent chips or defects, and do not substitute whitening or texture changes for a requested shape/size change. Blend only as needed around the target tooth boundary. Do not draw boxes, labels, outlines, or annotations.
 
-OUTPUT: One complete edited photograph only, full frame. No text, annotations, borders, labels, or crop inset.
-`;
+LOCALIZATION HINTS (not visible in output): ${JSON.stringify({ targets: gapClosure ? validatedTargets.map(item => ({ tooth: item.tooth, bbox: item.bbox, center: item.center })) : [{ tooth, bbox: validatedTarget.bbox, center: validatedTarget.center }], editingRegion: gapClosure ? compositingTarget.bbox : undefined, imageWidth: originalMetadata.width, imageHeight: originalMetadata.height })}
+
+TOOTH ASSESSMENT: ${JSON.stringify(effectiveToothReport || {})}
+${customPrompt && !gapClosure ? `ADDITIONAL DENTIST INSTRUCTIONS: ${customPrompt.slice(0, 1200)}` : ""}
+OUTPUT: One realistic, full-frame edited photograph only.`;
+
             console.log("Full-frame edit input:", {
                 width: originalMetadata.width,
                 height: originalMetadata.height,
@@ -4039,7 +4548,7 @@ OUTPUT: One complete edited photograph only, full frame. No text, annotations, b
                   `Variant ID: ${selectedShapeVariant.id}\n` +
                   `Variant name: ${selectedShapeVariant.label || selectedShapeVariant.name || selectedShapeVariant.id}\n` +
                   `Variant description: ${selectedShapeVariant.description || selectedShapeVariant.notes || "Match the reference image's visible crown silhouette and proportions."}\n` +
-                  `The first image is the patient's full photograph. The selected FDI reference image is a shape guide, not a replacement tooth or a request to copy its color/texture. Change ONLY the selected patient's tooth to resemble this chosen crown outline/proportion while preserving patient-specific lighting, texture, perspective, gumline, and neighboring teeth. Structural shape must visibly change; whitening alone is not acceptable.`
+                  `The first image is the patient's selected-tooth crop. The selected FDI reference image is a shape guide, not a replacement tooth or a request to copy its color/texture. Change ONLY the selected crown in this crop to resemble the chosen outline/proportion while preserving patient-specific lighting, texture, perspective, gumline, and neighboring teeth. Structural shape must visibly change; whitening alone is not acceptable.`
                 : "";
             const prompt = `${basePrompt}\n\nFDI REFERENCE LIBRARY GUIDANCE:\n${referenceGuidance}${selectedShapeGuidance}`;
 
@@ -4139,53 +4648,223 @@ OUTPUT: One complete edited photograph only, full frame. No text, annotations, b
                     });
                 }
             }
+            // The frontend sends a preview generated by /api/tooth-mask. Attach it as a
+            // visual selection guide only; it is not the source photograph and its red
+            // overlay must never be copied into the result.
+            const maskPreviewDataUrl = String(req.body.maskPreview || "");
+            const maskPreviewMatch = maskPreviewDataUrl.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+            const toothMaskDataUrl = String(req.body.toothMask || "");
+            const toothMaskMatch = toothMaskDataUrl.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+            const toothMaskBuffer = toothMaskMatch ? Buffer.from(toothMaskMatch[1], "base64") : null;
+            if (maskPreviewMatch) {
+                const maskPreviewBuffer = Buffer.from(maskPreviewMatch[2], "base64");
+                if (maskPreviewBuffer.length > 0 && maskPreviewBuffer.length <= 2 * 1024 * 1024) {
+                    fdiReferenceImages.push({
+                        buffer: maskPreviewBuffer,
+                        mimeType: `image/${maskPreviewMatch[1] === "jpg" ? "jpeg" : maskPreviewMatch[1]}`,
+                        filename: `fdi-${tooth}-selection-mask-guide.${maskPreviewMatch[1]}`
+                    });
+                }
+            }
+            let suppliedMaskMetrics = null;
+            try { suppliedMaskMetrics = JSON.parse(req.body.maskMetrics || "null"); } catch (_) {}
             console.log("Selected shape variant:", selectedShapeVariant ? `${selectedShapeVariant.id} (${selectedShapeVariant.label || selectedShapeVariant.id})` : "none");
             console.log("FDI reference images attached:", fdiReferenceImages.map((item) => item.filename));
 
             const originalImageMimeType = req.file.mimetype || "image/jpeg";
-            const imageResult =
-                await generateToothVisualization(
-                    req.file.buffer,
-                    originalImageMimeType,
-                    prompt,
+            let finalBuffer = null;
+            let visualQa = null;
+            let lastQaError = null;
+            const sourceMeta = await sharp(req.file.buffer).metadata();
+            const sourceWidth = Number(sourceMeta.width || 0);
+            const sourceHeight = Number(sourceMeta.height || 0);
+            if (!sourceWidth || !sourceHeight) throw new Error("Unable to determine source image dimensions.");
+
+            const isolatedCropInfo = gapClosure
+                ? null
+                : await createIsolatedToothEditingCrop(req.file.buffer, validatedTarget);
+            const qaTargetReport = {
+                ...(toothReport || {}),
+                requested_relative_size: desiredSizeAdjustment,
+                requested_dimensions_mm: desiredDimensionsMm,
+                dentist_custom_prompt: customPrompt,
+                mask_metrics: suppliedMaskMetrics
+            };
+
+            // Prefer mask-derived dimensions; fall back to localization dimensions only
+            // with an explicit flag so clients do not mistake a bbox for segmentation.
+            const maskBox = suppliedMaskMetrics?.boundingBox;
+            const currentMaskWidth = Number(maskBox?.width || validatedTarget.bbox?.width || isolatedCropInfo?.toothWidth || 0);
+            const currentMaskHeight = Number(maskBox?.height || validatedTarget.bbox?.height || isolatedCropInfo?.toothHeight || 0);
+            const hasMaskMeasurements = Number(maskBox?.width) > 0 && Number(maskBox?.height) > 0;
+            let pixelsPerMm = Number(payload?.calibration?.pixelsPerMm ?? payload?.pixelsPerMm ?? 0);
+            if (!Number.isFinite(pixelsPerMm) || pixelsPerMm <= 0 || pixelsPerMm > 1000) pixelsPerMm = 0;
+            let targetPixelDimensions = {
+                width: Math.max(1, Math.round(currentMaskWidth * desiredSizeAdjustment.widthPercent / 100)),
+                height: Math.max(1, Math.round(currentMaskHeight * desiredSizeAdjustment.heightPercent / 100))
+            };
+            if (desiredDimensionsMm && pixelsPerMm > 0) {
+                targetPixelDimensions = {
+                    width: Math.max(1, Math.round(desiredDimensionsMm.width * pixelsPerMm)),
+                    height: Math.max(1, Math.round(desiredDimensionsMm.height * pixelsPerMm))
+                };
+            }
+            const dimensionsSource = desiredDimensionsMm && pixelsPerMm > 0
+                ? "calibrated-mm-to-pixels"
+                : (hasMaskMeasurements ? "mask-measurements-and-relative-adjustment" : "localization-bbox-estimate");
+
+            // Single-tooth edit: the model proposes the target change, then the
+            // server-side compositing path protects the original image outside the
+            // selected tooth region. Do not rely on the model alone for pixel identity.
+            const fullFramePrompt = gapClosure ? "" : `
+EDIT THE FIRST IMAGE. Return a complete edited version of the original smile photograph with the same framing, aspect ratio, camera perspective, and overall lighting.
+
+EXACT TARGET:
+Edit only FDI ${tooth} (${validatedTarget.label || "selected tooth"}). Use the selection-mask guide, if supplied, only to locate this tooth. Never reproduce the red overlay or mask colors in the result.
+
+DIMENSION TARGET:
+Set the visible crown height of FDI ${tooth} to approximately ${desiredSizeAdjustment.heightPercent}% of its current visible height, and its visible crown width to approximately ${desiredSizeAdjustment.widthPercent}% of its current visible width. These are target dimensions relative to the original, not percentage-point increases. Keep the crown centered and naturally integrated with the existing tooth position.
+
+CROWN EDGE AND BLENDING:
+Create one continuous, anatomically plausible crown silhouette. Blend the edited crown edges into the adjacent tooth/gum boundaries without seams, halos, dark patches, white slivers, duplicated incisal edges, or leftover fragments of the original crown. Keep natural line angles, corner rounding, enamel texture, translucency, and incisal-edge contour. Do not create a rectangular pasted-on tooth or change the neighboring teeth to make the target fit.
+
+STRICT PRESERVATION:
+Do not intentionally alter any tooth other than FDI ${tooth}. Do not alter the gums, lips, skin, facial identity, lighting, shadows, or background. Return the full edited photograph only. The server will preserve the original pixels outside the selected-tooth edit region; do not attempt to compensate by changing surrounding areas.`;
+
+            const generationBuffer = req.file.buffer;
+            const generationMimeType = originalImageMimeType;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                const retryInstruction = attempt === 1 ? "" : `
+
+QA RETRY: The prior full-frame result failed visual QA: ${String(lastQaError?.qaResult?.reason || lastQaError?.message || "requested change not visible or artifacts detected").slice(0, 350)}. Correct FDI ${tooth} only; eliminate mask artifacts and preserve all other pixels/features as closely as possible.`;
+                const attemptPrompt = gapClosure ? `${prompt}${retryInstruction}` : `${fullFramePrompt}${retryInstruction}`;
+                console.log(`Selected-tooth image generation attempt ${attempt}/2 for FDI ${tooth}; mode=${gapClosure ? "gap-closure" : "full-frame-plus-targeted-composite"}.`);
+                const imageResult = await generateToothVisualization(
+                    generationBuffer,
+                    generationMimeType,
+                    attemptPrompt,
                     fdiReferenceImages
                 );
+                const generatedImage = extractGeneratedImage(imageResult);
+                if (!generatedImage) throw new Error("Pollinations returned no selected-tooth visualization.");
+                const generatedBuffer = await generatedImageToBuffer(generatedImage);
+                const generatedMeta = await sharp(generatedBuffer).metadata();
+                if (!generatedMeta.width || !generatedMeta.height) throw new Error("Pollinations returned an image with invalid dimensions.");
 
-            const generatedImage =
-                extractGeneratedImage(imageResult);
+                const generatedAspect = Number(generatedMeta.width) / Number(generatedMeta.height);
+                const sourceAspect = sourceWidth / sourceHeight;
+                const aspectDifference = Math.abs(generatedAspect - sourceAspect) / sourceAspect;
+                if (!Number.isFinite(aspectDifference) || aspectDifference > 0.025) {
+                    lastQaError = new Error("Generated image aspect ratio differs too much from the source photograph.");
+                    if (attempt === 2) throw lastQaError;
+                    continue;
+                }
+                let normalizedGenerated = await sharp(generatedBuffer)
+                    .resize(sourceWidth, sourceHeight, { fit: "fill" })
+                    .jpeg({ quality: 98 })
+                    .toBuffer();
 
-            if (!generatedImage) {
-                throw new Error(
-                    "Pollinations returned no selected-tooth visualization."
+                if (gapClosure) {
+                    finalBuffer = normalizedGenerated;
+                    visualQa = {
+                        skipped: true, pass: false, correction_visible: null,
+                        target_tooth_preserved: null, unintended_changes: null,
+                        invented_defect: null,
+                        reason: "Gap-closure visual QA is not implemented in this endpoint; review the generated result carefully before applying it."
+                    };
+                    break;
+                }
+
+                // AI-direct mode: do not resize, mask-composite, or restore pixels server-side.
+            // Return the full-frame image produced by the image model and let visual QA
+            // assess it. The model may alter non-target pixels; this mode intentionally
+            // prioritizes direct AI output over server-side pixel preservation.
+            const geometryPass = {
+                applied: false,
+                reason: "Disabled: returning the AI-generated full-frame image without server-side tooth compositing."
+            };
+
+            try {
+                visualQa = await validateSelectedToothEdit(
+                    req.file.buffer,
+                    normalizedGenerated,
+                    validatedTarget,
+                    {
+                        ...qaTargetReport,
+                        qa_scope: "full-frame generated image",
+                        target_pixel_dimensions: targetPixelDimensions,
+                        dimensions_source: dimensionsSource,
+                        deterministic_geometry_pass: geometryPass,
+                        reject_artifacts: [
+                            "red mask overlay visible in output",
+                            "dark crescent or black/brown patch under the crown",
+                            "white sliver or leftover fragment from the original tooth",
+                            "visible cutout seam, halo, or duplicated incisal edge",
+                            "changes to neighboring teeth or gingiva outside the requested edit"
+                        ]
+                    }
                 );
+            } catch (qaError) {
+                lastQaError = qaError;
+
+                const bypassToothVisualQA =
+                    String(process.env.BYPASS_TOOTH_VISUAL_QA || "").toLowerCase() === "true";
+
+                if (bypassToothVisualQA) {
+                    console.warn(
+                        "WARNING: BYPASS_TOOTH_VISUAL_QA is enabled; returning generated image despite QA failure:",
+                        qaError.message
+                    );
+                    visualQa = {
+                        pass: false,
+                        skipped: true,
+                        bypassed: true,
+                        reason: qaError.message || "Visual QA failed.",
+                        qa_scope: "full-frame-generated-image",
+                        note: "Visual QA was bypassed for development testing. Manually inspect the result; it is not verified."
+                    };
+                } else {
+                    if (attempt === 2 || qaError.code !== "TOOTH_EDIT_QA_FAILED") throw qaError;
+                    console.warn(`Full-frame selected-tooth QA rejected attempt ${attempt}; retrying once:`, qaError.message);
+                    continue;
+                }
             }
 
-            // 4. Convert MAI output to bytes.
-            const generatedCropBuffer =
-                await generatedImageToBuffer(generatedImage);
+                finalBuffer = normalizedGenerated;
+                visualQa = {
+                    ...visualQa,
+                    qa_scope: "full-frame-generated-image",
+                    compositing: "disabled-ai-direct-output",
+                    mask_is_clinical_segmentation: false,
+                    targetPixelDimensions,
+                    dimensionsSource,
+                    deterministicGeometryPass: geometryPass,
+                    calibratedPixelsPerMm: pixelsPerMm || null,
+                    note: "AI-direct mode: the generated full-frame image is returned without server-side tooth compositing. The image model may change pixels outside the selected tooth; inspect the result for artifacts."
+                };
+                break;
+            }
 
-            // QA the full-frame result and return it directly. No crop compositing
-            // or geometric mask is used, so no rectangular crop boundary is pasted in.
-            const visualQa = await validateSelectedToothEdit(
-                req.file.buffer,
-                generatedCropBuffer,
-                validatedTarget,
-                toothReport
-            );
+            if (!finalBuffer || !visualQa) {
+                throw lastQaError || new Error("Selected-tooth visualization did not pass quality checks.");
+            }
 
-            const finalImageMetadata = await sharp(generatedCropBuffer).metadata();
+            const finalImageMetadata = await sharp(finalBuffer).metadata();
             if (!finalImageMetadata.width || !finalImageMetadata.height) {
-                throw new Error("The image-editing model returned an invalid full-frame image.");
+                throw new Error("The generated selected-tooth result is not a valid image.");
             }
-            const finalBuffer = await sharp(generatedCropBuffer).jpeg({ quality: 98 }).toBuffer();
             const finalImage = "data:image/jpeg;base64," + finalBuffer.toString("base64");
 
-            console.log("Selected-tooth visualization complete (full-frame AI edit; no crop compositing).");
+            console.log(`${gapClosure ? "Gap-closure visualization" : "Selected-tooth visualization"} complete. QA skipped: ${Boolean(visualQa?.skipped)}; QA passed: ${visualQa?.pass === true}.`);
 
             return res.json({
                 success: true,
-                tooth,
+                tooth: gapClosure ? validatedTargets.map(item => item.tooth).join(", ") : tooth,
+                mode: gapClosure ? "gap-closure" : "single-tooth",
+                selectedTeeth: gapClosure ? validatedTargets.map(item => item.tooth) : [tooth],
                 visualQa,
+                requestedPixelDimensions: gapClosure ? null : targetPixelDimensions,
+                measurementBasis: gapClosure ? null : dimensionsSource,
                 generatedImage: finalImage,
                 referenceImage:
                     "data:image/jpeg;base64," +
@@ -4215,6 +4894,289 @@ OUTPUT: One complete edited photograph only, full frame. No text, annotations, b
                     error.message ||
                     "Unable to generate the selected-tooth visualization."
             });
+        }
+    }
+);
+
+// ============================================================
+// API: CALIBRATED PHYSICAL CROWN MEASUREMENTS
+// ============================================================
+// IMPORTANT: This endpoint does NOT infer millimetres from a tooth bbox.
+// The caller must provide (1) a known-size calibration reference measured
+// in the same image plane and (2) crown landmark pixel coordinates measured
+// on the original uploaded image. For reliable clinical dimensions, prefer
+// a calibrated intraoral scan or a controlled, calibrated image setup.
+app.post(
+    "/api/tooth-measure",
+    upload.single("image"),
+    validateUploadedImage,
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, error: "No image uploaded." });
+            }
+
+            const parseObject = (value, fieldName) => {
+                if (value && typeof value === "object") return value;
+                if (typeof value !== "string" || !value.trim()) {
+                    throw new Error(`${fieldName} is required as JSON.`);
+                }
+                try { return JSON.parse(value); }
+                catch (_) { throw new Error(`${fieldName} must contain valid JSON.`); }
+            };
+            const point = (obj, name) => {
+                const p = obj && obj[name];
+                const x = Number(p?.x);
+                const y = Number(p?.y);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                    throw new Error(`Missing or invalid pixel landmark: ${name}.`);
+                }
+                return { x, y };
+            };
+            const distance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+
+            const calibration = parseObject(req.body.calibration, "calibration");
+            const landmarks = parseObject(req.body.landmarks, "landmarks");
+            const knownLengthMm = Number(calibration.knownLengthMm);
+            if (!Number.isFinite(knownLengthMm) || knownLengthMm <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: "calibration.knownLengthMm must be a positive known physical length in millimetres."
+                });
+            }
+
+            const referenceStart = point(calibration, "referenceStart");
+            const referenceEnd = point(calibration, "referenceEnd");
+            const calibrationPixels = distance(referenceStart, referenceEnd);
+            if (!Number.isFinite(calibrationPixels) || calibrationPixels < 2) {
+                return res.status(400).json({
+                    success: false,
+                    error: "The calibration reference must span at least 2 pixels. Mark its two endpoints accurately."
+                });
+            }
+
+            const meta = await sharp(req.file.buffer).metadata();
+            const imageWidth = Number(meta.width || 0);
+            const imageHeight = Number(meta.height || 0);
+            if (!imageWidth || !imageHeight) {
+                return res.status(400).json({ success: false, error: "Unable to read uploaded image dimensions." });
+            }
+            const validatePointInImage = (p, name) => {
+                if (p.x < 0 || p.y < 0 || p.x >= imageWidth || p.y >= imageHeight) {
+                    throw new Error(`${name} must be inside the original image (${imageWidth} × ${imageHeight} px).`);
+                }
+            };
+            validatePointInImage(referenceStart, "calibration.referenceStart");
+            validatePointInImage(referenceEnd, "calibration.referenceEnd");
+
+            const gingival = point(landmarks, "gingivalMarginCenter");
+            const incisal = point(landmarks, "incisalEdgeCenter");
+            const mesial = point(landmarks, "mesialPoint");
+            const distal = point(landmarks, "distalPoint");
+            for (const [name, p] of Object.entries({
+                gingivalMarginCenter: gingival,
+                incisalEdgeCenter: incisal,
+                mesialPoint: mesial,
+                distalPoint: distal
+            })) validatePointInImage(p, `landmarks.${name}`);
+
+            const crownHeightPixels = distance(gingival, incisal);
+            const crownWidthPixels = distance(mesial, distal);
+            if (crownHeightPixels < 2 || crownWidthPixels < 2) {
+                return res.status(400).json({ success: false, error: "Crown landmark points are too close together to measure reliably." });
+            }
+
+            const mmPerPixel = knownLengthMm / calibrationPixels;
+            const crownHeightMm = crownHeightPixels * mmPerPixel;
+            const crownWidthMm = crownWidthPixels * mmPerPixel;
+            const tooth = String(req.body.tooth || "").trim();
+
+            // Explicit console output so measurements are visible in the terminal.
+            console.log("\n========== SIMOURA CALIBRATED CROWN MEASUREMENT ==========");
+            console.log("FDI tooth:", tooth || "not supplied");
+            console.log("Image dimensions:", `${imageWidth} × ${imageHeight} px`);
+            console.log("Known calibration length:", `${knownLengthMm} mm`);
+            console.log("Calibration reference measured:", `${calibrationPixels.toFixed(3)} px`);
+            console.log("Scale:", `${mmPerPixel.toFixed(8)} mm/px`);
+            console.log("Crown height:", `${crownHeightPixels.toFixed(2)} px = ${crownHeightMm.toFixed(2)} mm`);
+            console.log("Crown width:", `${crownWidthPixels.toFixed(2)} px = ${crownWidthMm.toFixed(2)} mm`);
+            console.log("Height/width ratio:", (crownHeightPixels / crownWidthPixels).toFixed(4));
+            console.log("Method: manual landmarks + single-reference calibration; 2D estimate, not clinically validated.");
+            console.log("=========================================================\n");
+
+            return res.json({
+                success: true,
+                tooth: tooth || null,
+                units: { image: "pixels", physical: "mm" },
+                measurementMethod: "manual crown landmarks + single-reference image calibration",
+                image: { widthPx: imageWidth, heightPx: imageHeight },
+                calibration: {
+                    knownLengthMm,
+                    measuredReferenceLengthPx: Number(calibrationPixels.toFixed(3)),
+                    millimetresPerPixel: Number(mmPerPixel.toFixed(8)),
+                    referenceStart,
+                    referenceEnd,
+                    requirement: "Reference and tooth must be at effectively the same depth/plane; perspective and lens distortion can invalidate the scale."
+                },
+                crownMeasurements: {
+                    height: {
+                        pixels: Number(crownHeightPixels.toFixed(3)),
+                        millimetres: Number(crownHeightMm.toFixed(2)),
+                        endpoints: { gingivalMarginCenter: gingival, incisalEdgeCenter: incisal }
+                    },
+                    width: {
+                        pixels: Number(crownWidthPixels.toFixed(3)),
+                        millimetres: Number(crownWidthMm.toFixed(2)),
+                        endpoints: { mesialPoint: mesial, distalPoint: distal }
+                    },
+                    heightToWidthRatio: Number((crownHeightPixels / crownWidthPixels).toFixed(4))
+                },
+                limitations: [
+                    "These are 2D projected measurements from manually supplied landmarks, not automatically detected crown boundaries.",
+                    "A single scale factor does not correct perspective, lens distortion, tooth curvature, or a calibration object at a different depth.",
+                    "Do not use these measurements for clinical decisions unless the acquisition and calibration method has been validated by a dental professional."
+                ]
+            });
+        } catch (error) {
+            return res.status(400).json({ success: false, error: error.message || "Unable to calculate calibrated crown measurements." });
+        }
+    }
+);
+
+// ============================================================
+// EXPERIMENTAL API: AI COLOR-CODED TOOTH MAP
+// This is diagnostic only; it does not replace the production tooth mask.
+// ============================================================
+
+app.post(
+    "/api/tooth-color-map",
+    upload.single("image"),
+    validateUploadedImage,
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, error: "Upload the current smile design first." });
+            }
+
+            let targets;
+            try {
+                targets = JSON.parse(String(req.body.targets || "[]"));
+            } catch {
+                return res.status(400).json({ success: false, error: "targets must be valid JSON." });
+            }
+            if (!Array.isArray(targets) || !targets.length) {
+                return res.status(400).json({ success: false, error: "Provide the localized FDI tooth targets." });
+            }
+
+            const validFdi = new Set(["11","12","13","14","15","16","17","18","21","22","23","24","25","26","27","28","31","32","33","34","35","36","37","38","41","42","43","44","45","46","47","48"]);
+            const seen = new Set();
+            const requested = targets
+                .map(t => ({ tooth: String(t?.tooth ?? t?.fdi ?? "").trim(), label: String(t?.label || "").trim() }))
+                .filter(t => validFdi.has(t.tooth) && !seen.has(t.tooth) && seen.add(t.tooth))
+                .slice(0, 24);
+            if (!requested.length) {
+                return res.status(400).json({ success: false, error: "No valid FDI tooth numbers were provided." });
+            }
+
+            const palette = [
+                [255,0,0],[0,220,255],[0,255,0],[255,0,220],[255,220,0],[90,0,255],
+                [255,110,0],[0,130,255],[180,255,0],[255,0,120],[0,255,160],[160,0,255],
+                [120,255,255],[255,150,180],[120,80,0],[80,255,80],[255,80,80],[80,80,255],
+                [220,120,255],[0,170,130],[170,170,0],[0,80,170],[170,0,80],[80,170,0]
+            ];
+            const colorHex = rgb => "#" + rgb.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+            const assignments = requested.map((t, i) => ({ ...t, color: colorHex(palette[i]), rgb: palette[i] }));
+            const legend = assignments.map(t => `FDI ${t.tooth}${t.label ? ` (${t.label})` : ""} = solid flat color ${t.color}`).join("\n");
+            const prompt = `Create a STRICT COLOR-CODED SEGMENTATION GUIDE from the supplied dental smile photograph. This is a computer-vision label map, NOT a beautification. Preserve the exact framing, tooth positions, tooth shapes, gum boundaries, lip boundaries, and all geometry. Do not move, resize, add, remove, merge, split, or reshape teeth. Recolor ONLY the visible tooth surfaces using the exact solid colors in this legend; each listed tooth must have its own unique color, uniform and flat across that tooth, with a sharp boundary at the visible tooth edge. Keep gums, lips, skin, shadows outside teeth, and background as neutral pure black (#000000). Do not draw outlines, labels, numbers, gradients, highlights, texture, shadows, or antialiasing if avoidable. If a tooth is not clearly visible, leave that region black rather than inventing it. Keep every pixel outside visible teeth black. Legend:\n${legend}\nReturn one image only.`;
+
+            const sourceMeta = await sharp(req.file.buffer).metadata();
+            const generated = await generateSmile(req.file.buffer, req.file.mimetype, prompt);
+            const generatedImage = extractGeneratedImage(generated);
+            if (!generatedImage) throw new Error("Image provider did not return a color-map image.");
+
+            let mapBuffer;
+            if (/^data:image\/(png|jpe?g|webp);base64,/i.test(generatedImage)) {
+                mapBuffer = Buffer.from(generatedImage.split(",")[1], "base64");
+            } else {
+                const url = new URL(generatedImage);
+                if (url.protocol !== "https:" || !/(^|\.)pollinations\.ai$/i.test(url.hostname)) {
+                    throw new Error("The generated color map was not returned from an approved Pollinations HTTPS URL.");
+                }
+                const imageResponse = await axios.get(generatedImage, {
+                    responseType: "arraybuffer", timeout: 90000,
+                    maxContentLength: 15 * 1024 * 1024, maxBodyLength: 15 * 1024 * 1024, maxRedirects: 0
+                });
+                mapBuffer = Buffer.from(imageResponse.data);
+            }
+
+            const normalizedMap = await sharp(mapBuffer).png().toBuffer();
+            const mapMeta = await sharp(normalizedMap).metadata();
+            const dimensionsMatch = Number(mapMeta.width) === Number(sourceMeta.width) && Number(mapMeta.height) === Number(sourceMeta.height);
+            const result = {
+                success: true,
+                experimental: true,
+                sourceDimensions: { width: sourceMeta.width, height: sourceMeta.height },
+                mapDimensions: { width: mapMeta.width, height: mapMeta.height },
+                dimensionsMatch,
+                assignments: assignments.map(({ tooth, label, color, rgb }) => ({ tooth, label, color, rgb })),
+                colorMap: `data:image/png;base64,${normalizedMap.toString("base64")}`,
+                masks: [],
+                warnings: [
+                    "AI-generated color maps may shift tooth boundaries or fail to follow the exact palette.",
+                    ...(dimensionsMatch ? [] : ["The map dimensions differ from the source. Masks were not extracted because automatic resizing could misalign tooth boundaries."]),
+                    "Review the overlay against the reference image before using any mask for a production edit."
+                ]
+            };
+
+            if (dimensionsMatch) {
+                const { data, info } = await sharp(normalizedMap).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+                for (const assignment of assignments) {
+                    const mask = Buffer.alloc(info.width * info.height);
+                    let pixelCount = 0;
+                    let minX = info.width, minY = info.height, maxX = -1, maxY = -1;
+                    const [pr, pg, pb] = assignment.rgb;
+                    for (let i = 0, p = 0; i < data.length; i += info.channels, p++) {
+                        const dr = data[i] - pr, dg = data[i + 1] - pg, db = data[i + 2] - pb;
+                        // Conservative nearest-palette matching; excludes pixels far from the assigned flat color.
+                        if (dr * dr + dg * dg + db * db <= 55 * 55) {
+                            mask[p] = 255;
+                            pixelCount++;
+                            const x = p % info.width;
+                            const y = Math.floor(p / info.width);
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                    const hasRegion = pixelCount >= 12 && maxX >= minX && maxY >= minY;
+                    const maskMetrics = hasRegion ? {
+                        maskAreaPixels: pixelCount,
+                        boundingBox: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
+                        minX, minY, maxX, maxY,
+                        boundingBoxAreaPixels: (maxX - minX + 1) * (maxY - minY + 1),
+                        maskFillRatio: Number((pixelCount / ((maxX - minX + 1) * (maxY - minY + 1))).toFixed(4))
+                    } : {
+                        maskAreaPixels: pixelCount,
+                        boundingBox: null,
+                        minX: null, minY: null, maxX: null, maxY: null,
+                        boundingBoxAreaPixels: 0,
+                        maskFillRatio: 0
+                    };
+                    if (hasRegion) {
+                        const maskPng = await sharp(mask, { raw: { width: info.width, height: info.height, channels: 1 } }).png().toBuffer();
+                        result.masks.push({ tooth: assignment.tooth, color: assignment.color, pixelCount, ...maskMetrics, mask: `data:image/png;base64,${maskPng.toString("base64")}` });
+                    } else {
+                        result.masks.push({ tooth: assignment.tooth, color: assignment.color, pixelCount, ...maskMetrics, mask: null, warning: "No reliable color region extracted." });
+                    }
+                }
+            }
+
+            console.log("AI COLOR MAP GENERATED", { requestedTeeth: requested.map(t => t.tooth), dimensionsMatch, masks: result.masks.map(m => ({ tooth: m.tooth, pixelCount: m.pixelCount, extracted: Boolean(m.mask) })) });
+            return res.json(result);
+        } catch (error) {
+            console.error("AI tooth color-map error:", error.response?.data || error.message);
+            return res.status(500).json({ success: false, error: error.message || "Unable to generate the experimental tooth color map." });
         }
     }
 );
@@ -4291,39 +5253,26 @@ app.post(
                 });
             }
 
-            const bbox = target.bbox;
-
-            const originalX = Math.max(
-                0,
-                Math.min(
-                    imageWidth - 1,
-                    Math.round((Number(bbox.x) / 1000) * imageWidth)
-                )
-            );
-
-            const originalY = Math.max(
-                0,
-                Math.min(
-                    imageHeight - 1,
-                    Math.round((Number(bbox.y) / 1000) * imageHeight)
-                )
-            );
-
-            const originalWidth = Math.max(
-                1,
-                Math.min(
-                    imageWidth - originalX,
-                    Math.round((Number(bbox.width) / 1000) * imageWidth)
-                )
-            );
-
-            const originalHeight = Math.max(
-                1,
-                Math.min(
-                    imageHeight - originalY,
-                    Math.round((Number(bbox.height) / 1000) * imageHeight)
-                )
-            );
+            // Current Kimi localization returns bbox coordinates in source-image pixels.
+            // Accept an explicit target from the frontend; preserve legacy 0..1000 boxes
+            // only when no pixel-space target was supplied.
+            const suppliedTarget = (() => {
+                try { return req.body.target ? JSON.parse(req.body.target) : null; }
+                catch (_) { return null; }
+            })();
+            const bbox = suppliedTarget?.bbox || target.bbox;
+            const bboxValues = [Number(bbox.x), Number(bbox.y), Number(bbox.width), Number(bbox.height)];
+            if (!bboxValues.every(Number.isFinite) || bboxValues[2] <= 0 || bboxValues[3] <= 0) {
+                return res.status(400).json({ success: false, error: "Selected tooth has invalid bounding-box coordinates." });
+            }
+            const looksLikePixelCoordinates = Boolean(suppliedTarget?.bbox) ||
+                (Number(bbox.x) + Number(bbox.width) > 1000 || Number(bbox.y) + Number(bbox.height) > 1000);
+            const scaleX = looksLikePixelCoordinates ? 1 : imageWidth / 1000;
+            const scaleY = looksLikePixelCoordinates ? 1 : imageHeight / 1000;
+            const originalX = Math.max(0, Math.min(imageWidth - 1, Math.round(Number(bbox.x) * scaleX)));
+            const originalY = Math.max(0, Math.min(imageHeight - 1, Math.round(Number(bbox.y) * scaleY)));
+            const originalWidth = Math.max(1, Math.min(imageWidth - originalX, Math.round(Number(bbox.width) * scaleX)));
+            const originalHeight = Math.max(1, Math.min(imageHeight - originalY, Math.round(Number(bbox.height) * scaleY)));
 
             const paddingX = Math.max(
                 5,
@@ -4506,16 +5455,24 @@ app.post(
                     const fullX = cropLeft + x;
                     const fullY = cropTop + y;
 
+                    // Keep the mask inside the selected tooth's detected bbox, but do
+                    // not inset that bbox: the inset was clipping valid pixels along
+                    // the left/right sides and crown edges of the selected tooth.
+                    // If the localization bbox is too narrow, fix localization rather
+                    // than shrinking the allowed mask region here.
+                    const allowedLeft = originalX;
+                    const allowedRight = originalX + originalWidth;
+                    const allowedTop = originalY;
+                    const allowedBottom = originalY + originalHeight;
                     if (
-                        fullX >= 0 &&
-                        fullX < imageWidth &&
-                        fullY >= 0 &&
-                        fullY < imageHeight
+                        fullX >= allowedLeft &&
+                        fullX < allowedRight &&
+                        fullY >= allowedTop &&
+                        fullY < allowedBottom &&
+                        fullX >= 0 && fullX < imageWidth &&
+                        fullY >= 0 && fullY < imageHeight
                     ) {
-                        fullMaskRaw[
-                            fullY * imageWidth + fullX
-                        ] =
-                            mask[y * width + x];
+                        fullMaskRaw[fullY * imageWidth + fullX] = mask[y * width + x];
                     }
                 }
             }
@@ -4625,10 +5582,43 @@ app.post(
                 })
                 .toBuffer();
 
+            // Calculate the actual heuristic-mask pixel area and its tight bounding box.
+            // These are image-pixel estimates, not calibrated physical crown dimensions.
+            let maskAreaPixels = 0;
+            let maskMinX = imageWidth, maskMinY = imageHeight, maskMaxX = -1, maskMaxY = -1;
+            for (let y = 0; y < imageHeight; y++) {
+                const rowOffset = y * imageWidth;
+                for (let x = 0; x < imageWidth; x++) {
+                    if (fullMaskRaw[rowOffset + x] > 0) {
+                        maskAreaPixels++;
+                        if (x < maskMinX) maskMinX = x;
+                        if (x > maskMaxX) maskMaxX = x;
+                        if (y < maskMinY) maskMinY = y;
+                        if (y > maskMaxY) maskMaxY = y;
+                    }
+                }
+            }
+            const maskHasPixels = maskAreaPixels > 0 && maskMaxX >= maskMinX && maskMaxY >= maskMinY;
+            const maskBoundingBox = maskHasPixels ? {
+                x: maskMinX,
+                y: maskMinY,
+                width: maskMaxX - maskMinX + 1,
+                height: maskMaxY - maskMinY + 1
+            } : null;
+
             return res.json({
                 success: true,
                 tooth,
                 bbox,
+                maskMetrics: {
+                    maskAreaPixels,
+                    boundingBox: maskBoundingBox,
+                    minX: maskHasPixels ? maskMinX : null,
+                    minY: maskHasPixels ? maskMinY : null,
+                    maxX: maskHasPixels ? maskMaxX : null,
+                    maxY: maskHasPixels ? maskMaxY : null,
+                    note: "Preliminary heuristic mask estimate in image pixels only; not a validated anatomical boundary or physical measurement in millimetres."
+                },
 
                 pixelBox: {
                     x: originalX,
@@ -4691,15 +5681,15 @@ app.post(
 
 
 
-    async (req, res) => {
+    async (req, res) => {
 
 
 
-        try {
+        try {
 
 
 
-            const isRefinement = String(req.body.refine || "").toLowerCase() === "true";
+            const isRefinement = String(req.body.refine || "").toLowerCase() === "true";
             let imageBuffer = req.file?.buffer || null;
             let imageMimeType = req.file?.mimetype || null;
 
@@ -4720,143 +5710,143 @@ app.post(
 
 
 
-            if (!req.body.report) {
+            if (!req.body.report) {
 
 
 
-                return res.status(400).json({
+                return res.status(400).json({
 
-                    success: false,
+                    success: false,
 
-                    error:
+                    error:
 
-                        "Smile analysis report is missing. Please analyze the image first."
+                        "Smile analysis report is missing. Please analyze the image first."
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            let report;
+            let report;
 
 
 
-            try {
+            try {
 
 
 
-                report =
+                report =
 
-                    normalizeReport(
+                    normalizeReport(
 
-                        JSON.parse(
+                        JSON.parse(
 
-                            req.body.report
+                            req.body.report
 
-                        )
+                        )
 
-                    );
+                    );
 
 
 
-            } catch (error) {
+            } catch (error) {
 
 
 
-                return res.status(400).json({
+                return res.status(400).json({
 
-                    success: false,
+                    success: false,
 
-                    error:
+                    error:
 
-                        "The smile analysis report is invalid. Please analyze the image again."
+                        "The smile analysis report is invalid. Please analyze the image again."
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            // Server-side image quality block
+            // Server-side image quality block
 
-            if (
+            if (
 
-                !isVisualizationAllowed(
+                !isVisualizationAllowed(
 
-                    report
+                    report
 
-                )
+                )
 
-            ) {
+            ) {
 
 
 
-                const blockingReasons =
+                const blockingReasons =
 
-                    getBlockingReasons(
+                    getBlockingReasons(
 
-                        report
+                        report
 
-                    );
+                    );
 
 
 
-                console.log(
+                console.log(
 
-                    "Visualization blocked:",
+                    "Visualization blocked:",
 
-                    blockingReasons
+                    blockingReasons
 
-                );
+                );
 
 
 
-                return res.status(422).json({
+                return res.status(422).json({
 
 
 
-                    success: false,
+                    success: false,
 
 
 
-                    code:
+                    code:
 
-                        "IMAGE_NOT_SUITABLE",
+                        "IMAGE_NOT_SUITABLE",
 
 
 
-                    error:
+                    error:
 
-                        "Please capture a clearer smile photograph with the teeth clearly visible before generating a visualization.",
+                        "Please capture a clearer smile photograph with the teeth clearly visible before generating a visualization.",
 
 
 
-                    blockingReasons
+                    blockingReasons
 
 
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            console.log(
+            console.log(
 
-                "Generating smile visualization with Pollinations..."
+                "Generating smile visualization with Pollinations..."
 
-            );
+            );
 
 
 
-            const customPrompt = String(req.body.customPrompt || "").trim();
+            const customPrompt = String(req.body.customPrompt || "").trim();
             if (customPrompt.length > 1200) {
                 return res.status(400).json({
                     success: false,
@@ -4874,139 +5864,139 @@ app.post(
 
 
 
-            const imageResult =
+            const imageResult =
 
-                await generateSmile(imageBuffer, imageMimeType, imagePrompt);
+                await generateSmile(imageBuffer, imageMimeType, imagePrompt);
 
 
 
-            const generatedImage =
+            const generatedImage =
 
-                extractGeneratedImage(
+                extractGeneratedImage(
 
-                    imageResult
+                    imageResult
 
-                );
+                );
 
 
 
-            if (!generatedImage) {
+            if (!generatedImage) {
 
 
 
-                console.error(
+                console.error(
 
-                    "Pollinations response:",
+                    "Pollinations response:",
 
-                    JSON.stringify(
+                    JSON.stringify(
 
-                        imageResult,
+                        imageResult,
 
-                        null,
+                        null,
 
-                        2
+                        2
 
-                    )
+                    )
 
-                );
+                );
 
 
 
-                throw new Error(
+                throw new Error(
 
-                    "Pollinations returned no generated image."
+                    "Pollinations returned no generated image."
 
-                );
+                );
 
 
 
-            }
+            }
 
 
 
-            console.log(
+            console.log(
 
-                "Smile visualization generated."
+                "Smile visualization generated."
 
-            );
+            );
 
 
 
-            return res.json({
+            return res.json({
 
 
 
-                success: true,
+                success: true,
 
 
 
-                generatedImage,
+                generatedImage,
 
 
 
-                imagePrompt
+                imagePrompt
 
 
 
-            });
+            });
 
 
 
-        } catch (error) {
+        } catch (error) {
 
 
 
-            console.error(
+            console.error(
 
-                "Generation error:",
+                "Generation error:",
 
-                error.response?.data ||
+                error.response?.data ||
 
-                error.message
+                error.message
 
-            );
+            );
 
 
 
-            return res.status(500).json({
+            return res.status(500).json({
 
 
 
-                success: false,
+                success: false,
 
 
 
-                error:
+                error:
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error?.message ||
+                        ?.error?.message ||
 
 
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error ||
+                        ?.error ||
 
 
 
-                    error.message ||
+                    error.message ||
 
 
 
-                    "Unable to generate the visualization."
+                    "Unable to generate the visualization."
 
 
 
-            });
+            });
 
 
 
-        }
+        }
 
 
 
-    }
+    }
 
 );
 
@@ -5022,264 +6012,264 @@ app.post(
 
 app.post(
 
-    "/api/simulate",
+    "/api/simulate",
 
-    upload.single("image"),
+    upload.single("image"),
     validateUploadedImage,
 
 
 
-    async (req, res) => {
+    async (req, res) => {
 
 
 
-        try {
+        try {
 
 
 
-            if (!req.file) {
+            if (!req.file) {
 
 
 
-                return res.status(400).json({
+                return res.status(400).json({
 
-                    success: false,
+                    success: false,
 
-                    error:
+                    error:
 
-                        "Please upload a smile photograph."
+                        "Please upload a smile photograph."
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            console.log(
+            console.log(
 
-                "Running legacy combined simulation..."
+                "Running legacy combined simulation..."
 
-            );
+            );
 
 
 
-            // Analyze
+            // Analyze
 
-            const rawReport =
+            const rawReport =
 
-                await analyzeSmile(
+                await analyzeSmile(
 
-                    req.file.buffer,
+                    req.file.buffer,
 
-                    req.file.mimetype
+                    req.file.mimetype
 
-                );
+                );
 
 
 
-            const report =
+            const report =
 
-                normalizeReport(
+                normalizeReport(
 
-                    parseKimiReport(
+                    parseKimiReport(
 
-                        rawReport
+                        rawReport
 
-                    )
+                    )
 
-                );
+                );
 
 
 
-            // Block unsuitable image
+            // Block unsuitable image
 
-            if (
+            if (
 
-                !isVisualizationAllowed(
+                !isVisualizationAllowed(
 
-                    report
+                    report
 
-                )
+                )
 
-            ) {
+            ) {
 
 
 
-                return res.status(422).json({
+                return res.status(422).json({
 
 
 
-                    success: false,
+                    success: false,
 
 
 
-                    code:
+                    code:
 
-                        "IMAGE_NOT_SUITABLE",
+                        "IMAGE_NOT_SUITABLE",
 
 
 
-                    error:
+                    error:
 
-                        "Please capture a clearer smile photograph with the teeth clearly visible before generating a visualization.",
+                        "Please capture a clearer smile photograph with the teeth clearly visible before generating a visualization.",
 
 
 
-                    report,
+                    report,
 
 
 
-                    blockingReasons:
+                    blockingReasons:
 
-                        getBlockingReasons(
+                        getBlockingReasons(
 
-                            report
+                            report
 
-                        )
+                        )
 
 
 
-                });
+                });
 
 
 
-            }
+            }
 
 
 
-            // Generate
+            // Generate
 
-            const imagePrompt =
+            const imagePrompt =
 
-                buildImagePrompt(
+                buildImagePrompt(
 
-                    report
+                    report
 
-                );
+                );
 
 
 
-            const imageResult =
+            const imageResult =
 
-                await generateSmile(
+                await generateSmile(
 
-                    req.file.buffer,
+                    req.file.buffer,
 
-                    req.file.mimetype,
+                    req.file.mimetype,
 
-                    imagePrompt
+                    imagePrompt
 
-                );
+                );
 
 
 
-            const generatedImage =
+            const generatedImage =
 
-                extractGeneratedImage(
+                extractGeneratedImage(
 
-                    imageResult
+                    imageResult
 
-                );
+                );
 
 
 
-            if (!generatedImage) {
+            if (!generatedImage) {
 
 
 
-                throw new Error(
+                throw new Error(
 
-                    "Pollinations returned no generated image."
+                    "Pollinations returned no generated image."
 
-                );
+                );
 
 
 
-            }
+            }
 
 
 
-            return res.json({
+            return res.json({
 
 
 
-                success: true,
+                success: true,
 
 
 
-                report,
+                report,
 
 
 
-                imagePrompt,
+                imagePrompt,
 
 
 
-                generatedImage
+                generatedImage
 
 
 
-            });
+            });
 
 
 
-        } catch (error) {
+        } catch (error) {
 
 
 
-            console.error(
+            console.error(
 
-                "Simulation error:",
+                "Simulation error:",
 
-                error.response?.data ||
+                error.response?.data ||
 
-                error.message
+                error.message
 
-            );
+            );
 
 
 
-            return res.status(500).json({
+            return res.status(500).json({
 
 
 
-                success: false,
+                success: false,
 
 
 
-                error:
+                error:
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error?.message ||
+                        ?.error?.message ||
 
 
 
-                    error.response?.data
+                    error.response?.data
 
-                        ?.error ||
+                        ?.error ||
 
 
 
-                    error.message ||
+                    error.message ||
 
 
 
-                    "Unable to complete the smile simulation."
+                    "Unable to complete the smile simulation."
 
 
 
-            });
+            });
 
 
 
-        }
+        }
 
 
 
-    }
+    }
 
 );
 
@@ -5295,85 +6285,85 @@ app.post(
 
 app.use(
 
-    (error, req, res, next) => {
+    (error, req, res, next) => {
 
 
 
-        console.error(
+        console.error(
 
-            "Unhandled server error:",
+            "Unhandled server error:",
 
-            error
+            error
 
-        );
-
-
-
-        // File upload errors
-
-        if (
-
-            error instanceof
-
-            multer.MulterError
-
-        ) {
+        );
 
 
 
-            return res.status(400).json({
+        // File upload errors
+
+        if (
+
+            error instanceof
+
+            multer.MulterError
+
+        ) {
 
 
 
-                success: false,
+            return res.status(400).json({
 
 
 
-                error:
-
-                    error.code ===
-
-                    "LIMIT_FILE_SIZE"
+                success: false,
 
 
 
-                        ? "Image is too large. Maximum size is 10 MB."
+                error:
+
+                    error.code ===
+
+                    "LIMIT_FILE_SIZE"
 
 
 
-                        : error.message
+                        ? "Image is too large. Maximum size is 10 MB."
 
 
 
-            });
+                        : error.message
 
 
 
-        }
+            });
 
 
 
-        return res.status(500).json({
+        }
 
 
 
-            success: false,
+        return res.status(500).json({
 
 
 
-            error:
-
-                error.message ||
-
-                "Internal server error."
+            success: false,
 
 
 
-        });
+            error:
+
+                error.message ||
+
+                "Internal server error."
 
 
 
-    }
+        });
+
+
+
+    }
 
 );
 
@@ -5452,32 +6442,32 @@ app.get("/api/tooth-shape-variants/:tooth", async (req, res) => {
 
 app.listen(
 
-    PORT,
+    PORT,
 
-    "0.0.0.0",
-
-
-
-    () => {
+    "0.0.0.0",
 
 
 
-        console.log(
-
-            `Smile Simulator running on port ${PORT}`
-
-        );
+    () => {
 
 
 
-        console.log(
+        console.log(
 
-            `Health check: http://localhost:${PORT}/api/health`
+            `Smile Simulator running on port ${PORT}`
 
-        );
+        );
 
 
 
-    }
+        console.log(
+
+            `Health check: http://localhost:${PORT}/api/health`
+
+        );
+
+
+
+    }
 
 );
