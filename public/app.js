@@ -1561,6 +1561,12 @@ function ensurePrecisionWorkspace(photoPanel, startRow) {
     sizeAdjustmentHelp.style.cssText = "margin:10px 0 0;color:#60736d;font-size:12px;line-height:1.5;";
     desiredDimensionsPanel.append(desiredDimensionsHeading, desiredDimensionsHelp, desiredDimensionsRow, sizeAdjustments, sizeAdjustmentHelp);
 
+    // Hide the manual millimetre targets and calibration inputs from the UI.
+    // Keep the relative Height/Width adjustment sliders available.
+    desiredDimensionsHeading.style.display = "none";
+    desiredDimensionsHelp.style.display = "none";
+    desiredDimensionsRow.style.display = "none";
+
     function updateDimensionPreviewHint() {
         const bbox = selectedToothTarget?.bbox;
         const heightRange = document.getElementById("desiredCrownHeightScale");
